@@ -1,0 +1,29 @@
+{
+  "name": "opencode-todo-md",
+  "version": "0.1.0",
+  "description": "Project todo list for OpenCode, stored in a plain TODO.md and shared by every session",
+  "author": "Leonardo Cosmai <leonardo.cosmai@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LeonVeganMan/opencode-todo-md.git"
+  },
+  "homepage": "https://github.com/LeonVeganMan/opencode-todo-md#readme",
+  "bugs": {
+    "url": "https://github.com/LeonVeganMan/opencode-todo-md/issues"
+  },
+  "type": "module",
+  "license": "MIT",
+  "keywords": ["opencode", "opencode-plugin", "todo", "tui", "markdown"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./tui": "./src/tui.tsx"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "bun test",
+    "check": "bun build src/tui.tsx --target=node --external '@opencode/plugin/tui' --external '@opentui/solid/jsx-dev-runtime' --external 'solid-js' --outdir /tmp/opencode/todo-md-build"
+  },
+  "peerDependencies": {
+    "@opencode/plugin": "*"
+  }
+}
