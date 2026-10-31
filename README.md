@@ -177,6 +177,23 @@ bun run check
 The plugins live in the same repository as the sources; OpenCode resolves `@opencode/plugin` at runtime, so nothing has
 to be installed locally to try a change.
 
+## Changelog
+
+### 0.1.2
+
+- `/todo` is drawn by the plugin instead of the host select: one-line filter tabs with counters, sortable columns,
+  paging, per-cell clicks, `Tag:` and `Sort:` cycles that survive the whole dialog.
+- Stable ids, due dates, creation and completion dates, `@tags` read from the task text.
+- `/todo import` adopts an existing list of bullets or numbered items after a preview, `/todo help` lists the
+  subcommands.
+- Sidebar strip compacted: rows no longer wrap and the overdue marker is ASCII.
+- `@opentui/core`, `@opentui/solid` and `solid-js` are dependencies, so the TUI half loads from npm.
+
+### 0.1.1
+
+- TUI dependencies declared: before this the strip and `/todo` failed to load with
+  `Cannot find package '@opentui/solid'`.
+
 ## License
 
 MIT

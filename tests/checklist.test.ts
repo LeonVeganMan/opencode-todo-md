@@ -560,4 +560,16 @@ describe("help command", () => {
       expect(parseTodoCommand(input).action).toBe(verb)
     }
   })
+
+  test("the help dialog documents every action parseTodoCommand can return", () => {
+    // Send one input per action, then compare the two sets: neither a phantom command nor an undocumented one survives.
+    const spoken = ["", "init", "import", "help", "done 1", "add buy milk"].map((input) => parseTodoCommand(input).action)
+    const verbs = ["add", "done", "init", "import", "help"]
+    const documented = STRINGS.dialog.help.map((line) => {
+      const word = line.slice("/todo".length).trim().split(/\s+/)[0] ?? ""
+      return verbs.includes(word) ? word : "list"
+    })
+    expect(spoken.sort()).toEqual(["add", "done", "help", "import", "init", "list"])
+    expect(documented.sort()).toEqual(spoken)
+  })
 })
