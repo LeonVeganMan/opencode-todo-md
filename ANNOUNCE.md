@@ -31,13 +31,13 @@ Two things I liked while building it:
 Install (local plugin, no build step):
 
 ```sh
-git clone <repository-url> ~/.opencode/plugins/opencode-todo-md
+git clone https://github.com/LeonVeganMan/opencode-todo-md ~/.opencode/plugins/opencode-todo-md
 ```
 
 Feedback welcome, especially on the dialog layout in narrow terminals.
 
 ## First comment (optional)
 
-Repo: <repository-url>
+Repo: https://github.com/LeonVeganMan/opencode-todo-md
 
 Status: early, 41 unit tests, TUI half loads after `/reload`.

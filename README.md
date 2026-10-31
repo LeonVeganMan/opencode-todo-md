@@ -29,7 +29,7 @@ From the plugin list in `~/.config/opencode/opencode.json`:
 That works once the package is published on npm. Until then, clone it next to the other local plugins:
 
 ```sh
-git clone <repository-url> ~/.opencode/plugins/opencode-todo-md
+git clone https://github.com/LeonVeganMan/opencode-todo-md ~/.opencode/plugins/opencode-todo-md
 ```
 
 OpenCode auto-loads every directory under the home-level `.opencode/plugins`, so no config entry is needed for a local
