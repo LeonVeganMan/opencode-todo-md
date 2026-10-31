@@ -39,6 +39,15 @@ export const STRINGS = {
     editTitle: "Edit task",
     editHint: "Tab priority · ✎ due types a date · Enter saves · Esc cancels",
     dueLabel: "✎ due",
+    helpTitle: "Todo commands",
+    help: [
+      "/todo                       open the list",
+      "/todo add <text> [high|medium|low] [due=YYYY-MM-DD]",
+      "/todo done <id>             mark a task completed",
+      "/todo init                  create TODO.md",
+      "/todo import                convert plain bullets to checkboxes",
+      "/todo help                  this help",
+    ],
   },
   toasts: {
     added: "Task added to TODO.md",
@@ -50,6 +59,8 @@ export const STRINGS = {
     completed: (id: number) => `Task #${id} completed`,
     alreadyCompleted: (id: number) => `Task #${id} already completed`,
     noTask: (id: number) => `No task with id ${id}`,
+    imported: (n: number) => `Imported ${n} ${n === 1 ? "item" : "items"}`,
+    noneToImport: "No plain bullets to import",
   },
   commands: {
     priority: "Todo: change priority",
@@ -71,6 +82,9 @@ export const STRINGS = {
     duePlaceholder: "YYYY-MM-DD",
     invalidDue: "Invalid date: use YYYY-MM-DD",
     delete: "Delete task",
+    import: "Import bullets",
+    importMessage: (n: number) =>
+      `${n} plain list ${n === 1 ? "item" : "items"} will become checkboxes. Code blocks and existing checkboxes are left untouched.`,
   },
 } as const
 

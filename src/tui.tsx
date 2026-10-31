@@ -15,6 +15,7 @@ import {
   filterByPriority,
   filterByTag,
   headerCells,
+  importTodo,
   initTodo,
   matchesQuery,
   newTodo,
@@ -179,7 +180,7 @@ const priorityColor = (theme: ThemeColors, priority?: TodoPriority) =>
   priority === "high" ? theme.error : priority === "medium" ? theme.warning : theme.textMuted
 
 // Sidebar rows stay one line: long task texts are clipped before they wrap.
-const STRIP_MAX = 44
+const STRIP_MAX = 30
 const clip = (text: string, room: number = STRIP_MAX) =>
   text.length > room ? `${text.slice(0, Math.max(room, 1) - 1)}…` : text
 
@@ -419,6 +420,30 @@ function openTodoDialog(context: ReturnType<typeof usePlugin>, sessionID: string
   context.ui.dialog.set({ size: "xlarge", centered: true })
 }
 
+function HelpDialog(props: { close: () => void }) {
+  const context = usePlugin()
+  context.keymap.layer(() => ({
+    mode: "global" as const,
+    commands: [{ id: "opencode-todo-md.help.close", title: STRINGS.commands.close, bind: "escape", run: () => props.close() }],
+  }))
+  return (
+    <box flexDirection="column" gap={1}>
+      <text>
+        <b>{STRINGS.dialog.helpTitle}</b>
+      </text>
+      <For each={STRINGS.dialog.help}>{(line) => <text>{line}</text>}</For>
+      <text fg={colorsOf(context).textMuted}>Esc closes</text>
+    </box>
+  )
+}
+
+/** The subcommands are arguments of `/todo`, so the palette cannot list them: this dialog does. */
+function openHelpDialog(context: ReturnType<typeof usePlugin>) {
+  context.ui.dialog.clear()
+  void context.ui.dialog.show(() => <HelpDialog close={() => context.ui.dialog.clear()} />, () => {})
+  context.ui.dialog.set({ size: "medium", centered: true })
+}
+
 function Strip(props: { sessionID: string }) {
   const context = usePlugin()
   const [tick, setTick] = createSignal(0)
@@ -458,12 +483,15 @@ function Strip(props: { sessionID: string }) {
             initTodo(context, props.sessionID)
             return openList()
           }
+          if (command.action === "import")
+            return void importTodo(context, props.sessionID).then((converted) => converted && openList())
           if (command.action === "add" && command.text)
             return void addTodo(context, props.sessionID, command.text, command.priority, command.due)
           if (command.action === "done") {
             completeTodo(context, props.sessionID, command.id)
             return openList()
           }
+          if (command.action === "help") return openHelpDialog(context)
           return openList()
         },
       },
@@ -527,7 +555,8 @@ function Strip(props: { sessionID: string }) {
               // The row maps back to the file by position, so a click opens the list on that task.
               const index = todos().indexOf(todo)
               const id = todo.id ? `#${todo.id} ` : ""
-              const prefix = `  [${todo.status === "in_progress" ? "•" : " "}] ${id}${todo.priority === "high" ? "! " : ""}${isOverdue(todo) ? "⌛ " : ""}`
+              // Compact prefix: the sidebar is narrow, and a long prefix pushes the text into a second line.
+              const prefix = `${id}${todo.status === "in_progress" ? "• " : ""}${todo.priority === "high" ? "! " : ""}${isOverdue(todo) ? "[!] " : ""}`
               return (
                 <text
                   // The built-in sidebar rows use mouseup; mousedown is not delivered to text renderables here.

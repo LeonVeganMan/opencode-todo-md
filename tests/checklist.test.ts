@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test"
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { applyChecklist, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, today } from "../src/checklist.ts"
+import { applyChecklist, importBullets, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, today } from "../src/checklist.ts"
 import { MARKERS, STRINGS } from "../src/strings.ts"
 import { pageSize } from "../src/page.ts"
-import { TABLE_HEADER, addTodo, changeDue, completeTodo, filterByPriority, filterByTag, filterOptions, filterRows, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, sortBy, summaryTitle, tableHeader, tableRow, tagWidthOf, tagsOf, toggleTodo, todosFor, updateTodo } from "../src/command.ts"
+import { TABLE_HEADER, addTodo, changeDue, completeTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, sortBy, summaryTitle, tableHeader, tableRow, tagWidthOf, tagsOf, toggleTodo, todosFor, updateTodo } from "../src/command.ts"
 
 const NOTE = "# TODO\n\nNota da preservare.\n\n- [ ] uno\n- [ ] due\n"
 
@@ -489,5 +489,75 @@ describe("done sort", () => {
     ]
     expect(sortBy(items, "done").map(({ todo }) => todo.content)).toEqual(["c", "b", "a"])
     expect(nextSort("created")).toBe("done")
+  })
+})
+
+describe("package manifest", () => {
+  const manifest = JSON.parse(readFileSync(join(import.meta.dir, "..", "package.json"), "utf8"))
+
+  test("ships the TUI runtime: node_modules is not transformed by the host", () => {
+    // Without a real dependency the bare import of @opentui/solid cannot resolve from
+    // the npm cache, and the sidebar slot fails to load.
+    for (const name of ["@opentui/solid", "@opentui/core", "solid-js"]) {
+      expect(manifest.dependencies?.[name]).toBeTruthy()
+    }
+  })
+})
+
+describe("import bullets", () => {
+  const mixed = "# TODO\n\n- fix login\n* write docs\n1. deploy\n- [x] already done\n\n```\n- code, not a task\n```\n"
+
+  test("plain bullets and numbered items become checkboxes, checkboxes and code stay", () => {
+    const { text, converted } = importBullets(mixed)
+    expect(converted).toBe(3)
+    expect(text).toContain("- [ ] fix login")
+    expect(text).toContain("- [ ] write docs")
+    expect(text).toContain("- [ ] deploy")
+    expect(text).toContain("- [x] already done")
+    expect(text).toContain("- code, not a task")
+  })
+
+  test("nothing to import leaves the file untouched", () => {
+    const text = "# TODO\n\n- [ ] already a checkbox\n"
+    expect(importBullets(text)).toEqual({ text, converted: 0 })
+  })
+
+  test("/todo import writes only after confirm", async () => {
+    expect(parseTodoCommand(" import ")).toEqual({ action: "import" })
+    const dir = mkdtempSync(join(tmpdir(), "todo-import-"))
+    try {
+      const file = join(dir, "TODO.md")
+      writeFileSync(file, "- first\n- second\n")
+      let asked = 0
+      const context = {
+        data: { session: { get: () => ({ directory: dir }) } },
+        ui: {
+          dialog: { confirm: async () => { asked++; return true } },
+          toast: { show() {} },
+        },
+      }
+      expect(await importTodo(context as never, "ses_test")).toBe(true)
+      expect(asked).toBe(1)
+      expect(readFileSync(file, "utf8")).toBe("- [ ] first\n- [ ] second\n")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("help command", () => {
+  test("help, -h and ? open the help dialog", () => {
+    expect(parseTodoCommand("help")).toEqual({ action: "help" })
+    expect(parseTodoCommand(" -h ")).toEqual({ action: "help" })
+    expect(parseTodoCommand("?")).toEqual({ action: "help" })
+  })
+
+  test("every subcommand listed in the help dialog is dispatched", () => {
+    const verbs = STRINGS.dialog.help.slice(1).map((line) => line.slice("/todo ".length).split(" ")[0])
+    expect(verbs).toEqual(["add", "done", "init", "import", "help"])
+    for (const verb of verbs) {
+      const input = verb === "add" ? "add buy milk" : verb === "done" ? "done 1" : verb
+      expect(parseTodoCommand(input).action).toBe(verb)
+    }
   })
 })

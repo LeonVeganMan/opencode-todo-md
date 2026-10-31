@@ -1,7 +1,7 @@
 import { STRINGS } from "./strings.ts"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { TODO_PRIORITIES, applyChecklist, isOverdue, parseChecklist, removeChecklistItem, type Todo, type TodoPriority } from "./checklist.ts"
+import { TODO_PRIORITIES, applyChecklist, importBullets, isOverdue, parseChecklist, removeChecklistItem, type Todo, type TodoPriority } from "./checklist.ts"
 
 export type SelectOption = {
   title: string
@@ -243,14 +243,18 @@ export type TodoCommand =
   | { action: "init" }
   | { action: "add"; text: string; priority?: TodoPriority; due?: string }
   | { action: "done"; id: number }
+  | { action: "import" }
+  | { action: "help" }
 
 /**
- * `/todo`, `/todo init`, `/todo add <text> [high|medium|low] [due=YYYY-MM-DD]`,
- * `/todo done <id>`; anything else opens the list.
+ * `/todo`, `/todo init`, `/todo import`, `/todo add <text> [high|medium|low] [due=YYYY-MM-DD]`,
+ * `/todo done <id>`, `/todo help`; anything else opens the list.
  */
 export function parseTodoCommand(input: string): TodoCommand {
   const trimmed = input.trim()
   if (/^init$/i.test(trimmed)) return { action: "init" }
+  if (/^import$/i.test(trimmed)) return { action: "import" }
+  if (/^(help|-h|\?)$/i.test(trimmed)) return { action: "help" }
   const done = /^done\s+#?(\d+)$/i.exec(trimmed)
   if (done) return { action: "done", id: Number(done[1]) }
   const add = /^add\s+([\s\S]+)$/i.exec(trimmed)
@@ -299,6 +303,25 @@ export function initTodo(context: DialogContext, sessionID: string): boolean {
   }
   commit(loaded.file, "# TODO\n\n## To do\n\n## Done\n")
   context.ui.toast.show({ message: STRINGS.toasts.created(loaded.file), variant: "success" })
+  return true
+}
+
+/**
+ * `/todo import`: adopts a hand-written list by turning its plain bullets into
+ * checkboxes, once, after showing how many items it would touch.
+ */
+export async function importTodo(context: DialogContext, sessionID: string): Promise<boolean> {
+  const loaded = readFile(directoryOf(context, sessionID))
+  if (!loaded) return false
+  const { text, converted } = importBullets(loaded.text)
+  if (converted === 0) {
+    context.ui.toast.show({ message: STRINGS.toasts.noneToImport, variant: "info" })
+    return false
+  }
+  const ok = await context.ui.dialog.confirm({ title: STRINGS.prompts.import, message: STRINGS.prompts.importMessage(converted) })
+  if (!ok) return false
+  commit(loaded.file, text)
+  context.ui.toast.show({ message: STRINGS.toasts.imported(converted), variant: "success" })
   return true
 }
 

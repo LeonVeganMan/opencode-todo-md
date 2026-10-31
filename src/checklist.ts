@@ -90,6 +90,36 @@ export function renderItem(todo: Todo): string {
   return `- [${MARK[todo.status]}] ${todo.content}${renderMeta(todo)}`
 }
 
+/**
+ * Turns plain markdown bullets and numbered items into checkboxes, so a hand-written
+ * TODO.md can be adopted once. Checkboxes and fenced code blocks are left alone.
+ */
+export function importBullets(text: string): { text: string; converted: number } {
+  const lines = text.split("\n")
+  const out: Array<string> = []
+  let fence = false
+  let converted = 0
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fence = !fence
+      out.push(line)
+      continue
+    }
+    if (fence || CHECKBOX.test(line)) {
+      out.push(line)
+      continue
+    }
+    const match = /^(\s*)(?:[-*+]|\d+\.)\s+(.+?)\s*$/.exec(line)
+    if (!match) {
+      out.push(line)
+      continue
+    }
+    converted++
+    out.push(`${match[1]}- [ ] ${match[2]}`)
+  }
+  return { text: out.join("\n"), converted }
+}
+
 /** Drops exactly one checkbox line, leaving every other line byte-identical. */
 export function removeChecklistItem(text: string, index: number): string {
   const { items, lines } = parseChecklist(text)

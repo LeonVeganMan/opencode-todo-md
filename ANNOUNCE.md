@@ -28,10 +28,18 @@ Two things I liked while building it:
 - the checklist is rewritten **in place**, so headings and notes in the file survive untouched;
 - dates and priority live in an invisible HTML comment, so the markdown renders cleanly on GitHub.
 
-Install (local plugin, no build step):
+Install from npm:
 
-```sh
-git clone https://github.com/LeonVeganMan/opencode-todo-md ~/.opencode/plugins/opencode-todo-md
+```json
+{ "plugins": ["opencode-todo-md"] }
+```
+
+Installing registers the tools, but nothing forces the model to use them. If you want the file to be the source of
+truth, one line in `AGENTS.md` (project or global) does the trick:
+
+```markdown
+If the project has a TODO.md at the root, keep it updated with todo_write (run todo_read first, then send the whole
+list). Do not edit the checkboxes by hand: the metadata lives in the trailing HTML comment.
 ```
 
 Feedback welcome, especially on the dialog layout in narrow terminals.
