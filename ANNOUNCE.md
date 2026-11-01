@@ -1,12 +1,13 @@
 # Announcement draft
 
-Post to Reddit (r/opencode, r/commandline, r/neovim) and GitHub release notes.
+Post to Reddit (r/opencode and any CLI/agent community you follow) and reuse as the GitHub release notes.
 
 ## Titles
 
-- I built a todo list for OpenCode that lives in your repo
-- opencode-todo-md: one TODO.md shared by every session
+- A project TODO.md for OpenCode: priorities, due dates, tags and a clickable list
+- One TODO.md shared by every session, with priorities, status and due dates
 - Your agent's todo list should survive the session
+- I built a todo list for OpenCode that lives in your repo
 
 ## Body
 
@@ -47,5 +48,7 @@ Feedback welcome, especially on the dialog layout in narrow terminals.
 ## First comment (optional)
 
 Repo: https://github.com/LeonVeganMan/opencode-todo-md
+npm: https://www.npmjs.com/package/opencode-todo-md
 
-Status: early, 41 unit tests, TUI half loads after `/reload`.
+Status: v0.1.3, 49 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
+run `/reload`, after installing or updating.

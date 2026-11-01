@@ -67,6 +67,7 @@ export const STRINGS = {
     cancelEdit: "Todo: cancel edit",
     close: "Todo: close",
     delete: "Todo: delete task",
+    search: "Todo: search",
     up: "Todo: up",
     down: "Todo: down",
     toggle: "Todo: toggle",

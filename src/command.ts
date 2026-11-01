@@ -154,7 +154,7 @@ export const TABLE_HEADER = tableHeader()
 /** Due date, prefixed by ! when overdue. The full ISO date fits: the column is 11 wide. */
 const dueCell = (todo: Todo) => (todo.due ? `${isOverdue(todo) ? "!" : ""}${todo.due}` : "-")
 
-/** One table row: every column is fixed-width, so headers and rows line up. The description comes last, so it is the only column the host can clip. */
+/** One table row: every column is fixed-width, so headers and rows line up. The description is the last column: at xlarge (116) the row fits on one line. */
 export function cellsOf(todo: Todo, tagWidth: number = COL_TAGS): Array<string> {
   return [
     cell(todo.id !== undefined ? `#${todo.id}` : "-", COL_ID),
@@ -164,8 +164,13 @@ export function cellsOf(todo: Todo, tagWidth: number = COL_TAGS): Array<string> 
     cell(dueCell(todo), COL_DUE),
     cell(todo.done ?? "-", COL_DONE),
     cell(tagsOf(todo.content).join(" "), tagWidth),
-    cell(todo.content.replace(/\s+/g, " "), COL_CONTENT),
+    cell(descriptionOf(todo), COL_CONTENT),
   ]
+}
+
+/** The task text, whitespace collapsed: it goes on a line of its own under the meta row. */
+export function descriptionOf(todo: Todo): string {
+  return todo.content.replace(/\s+/g, " ")
 }
 
 export function tableRow(todo: Todo, tagWidth: number = COL_TAGS): string {
@@ -411,6 +416,15 @@ export async function deleteTodo(context: DialogContext, sessionID: string, valu
   if (!ok) return
   commit(loaded.file, removeChecklistItem(loaded.text, index))
   context.ui.toast.show({ message: STRINGS.toasts.deleted, variant: "success" })
+}
+
+/** Removes one task without asking; the TUI uses it for the double ctrl+d shortcut. */
+export function removeTodo(context: DialogContext, sessionID: string, value: string): boolean {
+  const found = loadSelected(context, sessionID, value)
+  if (!found) return false
+  commit(found.loaded.file, removeChecklistItem(found.loaded.text, found.index))
+  context.ui.toast.show({ message: STRINGS.toasts.deleted, variant: "success" })
+  return true
 }
 
 const PRIORITY_OPTIONS: Array<SelectOption> = [

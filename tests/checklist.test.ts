@@ -5,7 +5,7 @@ import { join } from "node:path"
 import { applyChecklist, importBullets, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, today } from "../src/checklist.ts"
 import { MARKERS, STRINGS } from "../src/strings.ts"
 import { pageSize } from "../src/page.ts"
-import { TABLE_HEADER, addTodo, changeDue, completeTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, sortBy, summaryTitle, tableHeader, tableRow, tagWidthOf, tagsOf, toggleTodo, todosFor, updateTodo } from "../src/command.ts"
+import { TABLE_HEADER, addTodo, changeDue, completeTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, removeTodo, sortBy, summaryTitle, tableHeader, tableRow, descriptionOf, tagWidthOf, tagsOf, toggleTodo, todosFor, updateTodo } from "../src/command.ts"
 
 const NOTE = "# TODO\n\nNota da preservare.\n\n- [ ] uno\n- [ ] due\n"
 
@@ -283,8 +283,9 @@ describe("table, sorting and due prompt", () => {
     })
     expect(row.length).toBe(TABLE_HEADER.length)
     expect(row.startsWith("#12 ")).toBe(true)
-    expect(row).toContain("…")
     expect(row).toContain("2026-11-05")
+    expect(row).toContain("…")
+    expect(descriptionOf({ content: "un titolo\n  molto lungo", status: "pending" })).toBe("un titolo molto lungo")
   })
 
   test("tags are extracted once from the text", () => {
@@ -429,6 +430,24 @@ describe("custom dialog helpers", () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
+  test("removeTodo drops one line and leaves the rest untouched", () => {
+    const dir = mkdtempSync(join(tmpdir(), "todo-md-"))
+    writeFileSync(join(dir, "TODO.md"), "# TODO\n\nNota.\n\n- [ ] uno <!-- id=1 -->\n- [ ] due <!-- id=2 -->\n- [ ] tre <!-- id=3 -->\n")
+    const context = {
+      data: { session: { get: () => ({ directory: dir }) } },
+      ui: { dialog: {}, toast: { show: () => {} } },
+    }
+
+    expect(removeTodo(context as never, "ses_test", "#2")).toBe(true)
+    const text = readFileSync(join(dir, "TODO.md"), "utf8")
+    expect(text).toContain("Nota.")
+    expect(text).not.toContain("due")
+    expect(text).toContain("- [ ] uno <!-- id=1")
+    expect(text).toContain("- [ ] tre <!-- id=3")
+    expect(removeTodo(context as never, "ses_test", "#9")).toBe(false)
+    rmSync(dir, { recursive: true, force: true })
+  })
+
   test("matchesQuery understands words, ids, tags and free text", () => {
     const todo = { content: "fix login @android", status: "pending" as const, id: 3 }
     expect(matchesQuery(todo, "")).toBe(true)
@@ -474,9 +493,9 @@ describe("completion date", () => {
 describe("page size", () => {
   test("clamps between 4 and 8 rows", () => {
     expect(pageSize(10)).toBe(4)
-    expect(pageSize(20)).toBe(6)
-    expect(pageSize(40)).toBe(8)
-    expect(pageSize(100)).toBe(8)
+    expect(pageSize(20)).toBe(4)
+    expect(pageSize(40)).toBe(12)
+    expect(pageSize(100)).toBe(12)
   })
 })
 

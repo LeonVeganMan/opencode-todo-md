@@ -10,7 +10,6 @@ import {
   cellsOf,
   changeDue,
   completeTodo,
-  deleteTodo,
   directoryOf,
   filterByPriority,
   filterByTag,
@@ -24,6 +23,7 @@ import {
   onTodosChanged,
   parseTodoCommand,
   readFile,
+  removeTodo,
   sortBy,
   sortTodos,
   tagWidthOf,
@@ -196,6 +196,8 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   const theme = () => colorsOf(context)
   // Recomputed on every open: a resize between dialogs is picked up.
   const PAGE = pageSize()
+  // A size set before show() is ignored on this build, so ask again from inside the dialog.
+  onMount(() => context.ui.dialog.set?.({ size: "xlarge", centered: true }))
   const [tick, setTick] = createSignal(0)
   const [filter, setFilter] = createSignal<TodoFilter>("all")
   const [priority, setPriority] = createSignal<TodoPriority | undefined>()
@@ -203,6 +205,10 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   const [sort, setSort] = createSignal<SortKey | undefined>()
   const [page, setPage] = createSignal(0)
   const [query, setQuery] = createSignal("")
+  const [cursor, setCursor] = createSignal(0)
+  // The search box takes the keyboard only when it asks: `/` focuses it, Esc hands it back to the list.
+  const [focusSearch, setFocusSearch] = createSignal(false)
+  const [pendingDelete, setPendingDelete] = createSignal<string | undefined>()
 
   onMount(() => onCleanup(onTodosChanged(() => setTick((value) => value + 1))))
 
@@ -233,10 +239,36 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   const key = (todo: Todo, index: number) => (todo.id !== undefined ? `#${todo.id}` : `t${index}`)
   const refresh = () => setTick((value) => value + 1)
 
-  // Keyboard is optional: arrows move the cursor, space toggles, enter edits. Mouse users ignore it.
-  const [cursor, setCursor] = createSignal(0)
+  // The list keeps its own cursor while the search box does not have the keyboard.
   const selected = () => visible()[Math.min(cursor(), Math.max(0, visible().length - 1))]
-  const move = (delta: number) => setCursor(Math.max(0, Math.min(visible().length - 1, cursor() + delta)))
+  const move = (delta: number) => {
+    setPendingDelete(undefined)
+    const next = cursor() + delta
+    // Walking past the last visible row turns the page instead of stopping at the edge.
+    if (next >= visible().length) {
+      if (current() >= pages() - 1) return
+      setPage(current() + 1)
+      setCursor(0)
+      return
+    }
+    if (next < 0) {
+      if (current() === 0) return
+      setPage(current() - 1)
+      setCursor(PAGE - 1)
+      return
+    }
+    setCursor(next)
+  }
+  // Two ctrl+d like the editor: the first arms the task, the second deletes it. No dialog to dismiss.
+  const deleteSelected = () => {
+    const item = selected()
+    if (!item) return
+    const value = key(item.todo, item.index)
+    if (pendingDelete() !== value) return setPendingDelete(value)
+    removeTodo(context, props.sessionID, value)
+    setPendingDelete(undefined)
+    refresh()
+  }
 
   const cycleTag = () => {
     const list = tags()
@@ -264,37 +296,49 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   const headerLabel = (cell: string, position: number) =>
     HEADER_SORTS[position] && HEADER_SORTS[position] === sort() ? `${cell.trimEnd()} ▲`.padEnd(cell.length) : cell
 
+  // Every list shortcut is gated on focusSearch(): while the box holds the keyboard those keys must type text.
   context.keymap.layer(() => ({
     mode: "global" as const,
     commands: [
-      { id: "opencode-todo-md.close", title: STRINGS.commands.close, bind: "escape", run: () => props.close() },
+      { id: "opencode-todo-md.search", title: STRINGS.commands.search, bind: "/", run: () => setFocusSearch(true) },
       {
-        id: "opencode-todo-md.delete",
-        title: STRINGS.commands.delete,
-        bind: "ctrl+d",
+        id: "opencode-todo-md.close",
+        title: STRINGS.commands.close,
+        bind: "escape",
+        run: () => (focusSearch() ? setFocusSearch(false) : props.close()),
+      },
+      {
+        id: "opencode-todo-md.up",
+        title: STRINGS.commands.up,
+        bind: "up",
         run: () => {
-          const task = selected()
-          if (task) void deleteTodo(context, props.sessionID, key(task.todo, task.index)).then(refresh)
+          if (!focusSearch()) move(-1)
         },
       },
-      { id: "opencode-todo-md.up", title: STRINGS.commands.up, bind: "up", run: () => move(-1) },
-      { id: "opencode-todo-md.down", title: STRINGS.commands.down, bind: "down", run: () => move(1) },
+      {
+        id: "opencode-todo-md.down",
+        title: STRINGS.commands.down,
+        bind: "down",
+        run: () => {
+          if (!focusSearch()) move(1)
+        },
+      },
       {
         id: "opencode-todo-md.toggle",
         title: STRINGS.commands.toggle,
         bind: "space",
         run: () => {
+          if (focusSearch()) return
           const item = selected()
           if (item) toggle(item.todo, item.index)
         },
       },
       {
-        id: "opencode-todo-md.edit",
-        title: STRINGS.commands.edit,
-        bind: "enter",
+        id: "opencode-todo-md.delete",
+        title: STRINGS.commands.delete,
+        bind: "ctrl+d",
         run: () => {
-          const item = selected()
-          if (item) void editTodo(context, props.sessionID, key(item.todo, item.index))
+          if (!focusSearch()) deleteSelected()
         },
       },
     ],
@@ -348,9 +392,14 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
       <input
         value={query()}
         placeholder="Search and press Enter (open, high, #12, @tag)"
+        // focused: the host only gives the keyboard to an input that asks for it, so `/` (or a click) asks for it.
+        focused={focusSearch()}
+        onMouseUp={() => setFocusSearch(true)}
         onSubmit={(value) => {
           setQuery(value)
           setPage(0)
+          // Enter applies the search and hands the keyboard back to the list, so Esc is only the close key.
+          setFocusSearch(false)
         }}
       />
 
@@ -377,7 +426,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
       <For each={visible()}>
         {({ todo, index }, row) => (
           <box flexDirection="row">
-            <text flexShrink={0} fg={theme().textMuted}>{row() === cursor() ? "▸ " : "  "}</text>
+            <text flexShrink={0} fg={theme().text}>{row() === cursor() ? "▸ " : "  "}</text>
             <For each={cellsOf(todo, tagWidth())}>
               {(cell, position) => (
                 <text
@@ -390,7 +439,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
                     if (position() === 4) return void changeDue(context, props.sessionID, key(todo, index)).then(refresh)
                     if (position() === 6) setTag(tagsOf(todo.content)[0])
                   }}
-                >{`${cell} `}</text>
+                >{row() === cursor() ? <b>{`${cell} `}</b> : `${cell} `}</text>
               )}
             </For>
           </box>
@@ -400,24 +449,29 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
       <text> </text>
 
       <box flexDirection="row" gap={2}>
-        <text onMouseUp={() => setPage((value) => Math.max(0, value - 1))}>▲</text>
+        <text onMouseUp={() => { setPage((value) => Math.max(0, value - 1)); setCursor(0) }}>▲</text>
         <text fg={theme().textMuted}>{`${current() + 1}/${pages()}`}</text>
-        <text onMouseUp={() => setPage((value) => Math.min(pages() - 1, value + 1))}>▼</text>
+        <text onMouseUp={() => { setPage((value) => Math.min(pages() - 1, value + 1)); setCursor(0) }}>▼</text>
         <text fg={theme().textMuted}>{STRINGS.dialog.count(rows().length)}</text>
       </box>
-      <text>Click: #id edits · state/content toggles · priority cycles · due prompts · Esc closes</text>
+      <text>
+        {pendingDelete()
+          ? `ctrl+d again to delete ${pendingDelete()}`
+          : "Click: #id edits · status toggles · priority cycles · due prompts · / searches · Esc closes"}
+      </text>
     </box>
   )
 }
 
 function openTodoDialog(context: ReturnType<typeof usePlugin>, sessionID: string) {
   context.ui.dialog.clear()
-  // show first: the surface mounts with the dialog and would override a size set before it.
+  // Size before show: resizing a mounted surface moves the box but leaves the mouse hit grid at the old size, so
+  // clicks land on the wrong cell (or nowhere) and the search box cannot be focused.
+  context.ui.dialog.set({ size: "xlarge", centered: true })
   void context.ui.dialog.show(
     () => <TodoDialog sessionID={sessionID} close={() => context.ui.dialog.clear()} />,
     () => {},
   )
-  context.ui.dialog.set({ size: "xlarge", centered: true })
 }
 
 function HelpDialog(props: { close: () => void }) {
@@ -440,8 +494,8 @@ function HelpDialog(props: { close: () => void }) {
 /** The subcommands are arguments of `/todo`, so the palette cannot list them: this dialog does. */
 function openHelpDialog(context: ReturnType<typeof usePlugin>) {
   context.ui.dialog.clear()
-  void context.ui.dialog.show(() => <HelpDialog close={() => context.ui.dialog.clear()} />, () => {})
   context.ui.dialog.set({ size: "medium", centered: true })
+  void context.ui.dialog.show(() => <HelpDialog close={() => context.ui.dialog.clear()} />, () => {})
 }
 
 function Strip(props: { sessionID: string }) {
