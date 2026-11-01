@@ -324,6 +324,50 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         },
       },
       {
+        id: "opencode-todo-md.pageup",
+        title: STRINGS.commands.pageUp,
+        bind: "pageup",
+        run: () => {
+          if (focusSearch()) return
+          setPendingDelete(undefined)
+          setPage(Math.max(0, current() - 1))
+          setCursor(0)
+        },
+      },
+      {
+        id: "opencode-todo-md.pagedown",
+        title: STRINGS.commands.pageDown,
+        bind: "pagedown",
+        run: () => {
+          if (focusSearch()) return
+          setPendingDelete(undefined)
+          setPage(Math.min(pages() - 1, current() + 1))
+          setCursor(0)
+        },
+      },
+      {
+        id: "opencode-todo-md.home",
+        title: STRINGS.commands.home,
+        bind: "home",
+        run: () => {
+          if (focusSearch()) return
+          setPendingDelete(undefined)
+          setPage(0)
+          setCursor(0)
+        },
+      },
+      {
+        id: "opencode-todo-md.end",
+        title: STRINGS.commands.end,
+        bind: "end",
+        run: () => {
+          if (focusSearch()) return
+          setPendingDelete(undefined)
+          setPage(pages() - 1)
+          setCursor(0)
+        },
+      },
+      {
         id: "opencode-todo-md.toggle",
         title: STRINGS.commands.toggle,
         bind: "space",
