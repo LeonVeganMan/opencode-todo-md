@@ -49,16 +49,24 @@ checkout. Restart the TUI (or run `/reload`) to load the TUI half after an updat
 
 ### Agent tools
 
-`todo_write` takes the complete list, which replaces the previous one:
+`todo_write` merges by default, so nothing is deleted unless you ask for it.
+
+Add a task (no `id`) or update one (with `id`):
 
 ```json
 { "todos": [{ "content": "Fix login redirect", "status": "in_progress", "priority": "high" }] }
 ```
 
-or a patch list, where each item carries an `id` plus only the fields to change:
+Patch only the fields that change:
 
 ```json
 { "todos": [{ "id": 3, "status": "completed" }] }
+```
+
+Replace the whole list, the only way to delete tasks; an empty list clears the file:
+
+```json
+{ "mode": "replace", "todos": [] }
 ```
 
 `todo_read` prints the list with ids, priority, due, done and created dates. Ids are assigned on first appearance and
@@ -139,9 +147,10 @@ agent should keep the plan in this file instead of the conversation, and that is
 Project-local `AGENTS.md`, at the repository root:
 
 ```markdown
-If the project has a TODO.md at the root, keep it updated with todo_write: run todo_read first, then send the complete
-list. Do not edit the checkboxes by hand, the id/priority/created/done metadata lives in the trailing HTML comment.
-Projects without TODO.md have no list to keep.
+If the project has a TODO.md at the root, keep it updated with todo_write instead of editing the file by hand: the
+id/priority/due/created metadata lives in the trailing HTML comment. A write merges by default, so send only the new
+tasks (no id) or the ones to change (with id); use mode "replace" with the full list only to delete tasks. Never use
+mode "replace" to add a task: it deletes every task you did not list. Projects without TODO.md have no list to keep.
 ```
 
 Global, so every project inherits it, in `~/.agents/AGENTS.md`:
@@ -185,6 +194,12 @@ The plugins live in the same repository as the sources; OpenCode resolves `@open
 to be installed locally to try a change.
 
 ## Changelog
+
+### 0.1.8
+
+- `todo_write` merges by default: items without an `id` are appended and items with an `id` are updated, so a partial
+  write can no longer wipe the rest of the list. `mode: "replace"` is the only way to delete tasks.
+- The list returned by `todo_write` is the one actually stored in `TODO.md`.
 
 ### 0.1.7
 
