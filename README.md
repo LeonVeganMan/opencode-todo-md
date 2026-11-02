@@ -102,7 +102,7 @@ Search and press Enter (open, high, #12, @tag)
 - Click the `#id`, `prio`, `created`, `due` or `done` header to sort by that column; the sorted column is marked with
   `▲`, a second click restores the default order.
 - The list has a cursor (`▸`): `↑`/`↓` move it, and walking past the last row of a page turns the page, so the cursor
-  never stops at the edge. `space` toggles the selected task, `enter` edits it, `PgUp`/`PgDn` change page, `Home`/`End`
+  never stops at the edge. `space` toggles the selected task, `ctrl+e` edits it, `PgUp`/`PgDn` change page, `Home`/`End`
   jump to the first or last page.
 - `ctrl+d` arms the selected task and shows `ctrl+d again to delete`: the second press removes the line, no dialog.
 - `/` gives the keyboard to the search box; `Enter` applies the query and gives the keyboard back to the list. `Esc`
@@ -184,6 +184,10 @@ The plugins live in the same repository as the sources; OpenCode resolves `@open
 to be installed locally to try a change.
 
 ## Changelog
+
+### 0.1.5
+
+- `ctrl+e` opens the selected task in the editor, so the whole list is reachable without the mouse.
 
 ### 0.1.4
 

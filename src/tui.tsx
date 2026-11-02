@@ -269,6 +269,10 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
     setPendingDelete(undefined)
     refresh()
   }
+  const editSelected = () => {
+    const item = selected()
+    if (item) void editTodo(context, props.sessionID, key(item.todo, item.index))
+  }
 
   const cycleTag = () => {
     const list = tags()
@@ -375,6 +379,14 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
           if (focusSearch()) return
           const item = selected()
           if (item) toggle(item.todo, item.index)
+        },
+      },
+      {
+        id: "opencode-todo-md.edit",
+        title: STRINGS.commands.edit,
+        bind: "ctrl+e",
+        run: () => {
+          if (!focusSearch()) editSelected()
         },
       },
       {
@@ -501,7 +513,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
       <text>
         {pendingDelete()
           ? `ctrl+d again to delete ${pendingDelete()}`
-          : "Click: #id edits · status toggles · priority cycles · due prompts · / searches · Esc closes"}
+          : "Click: #id edits · ctrl+e edits · status toggles · priority cycles · due prompts · / searches · Esc closes"}
       </text>
     </box>
   )
