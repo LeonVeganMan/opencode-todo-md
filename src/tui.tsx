@@ -15,6 +15,7 @@ import {
   filterByTag,
   headerCells,
   importTodo,
+  renumberTodo,
   initTodo,
   matchesQuery,
   newTodo,
@@ -603,6 +604,8 @@ function Strip(props: { sessionID: string }) {
           }
           if (command.action === "import")
             return void importTodo(context, props.sessionID).then((converted) => converted && openList())
+          if (command.action === "renumber")
+            return void renumberTodo(context, props.sessionID).then((changed) => changed && openList())
           if (command.action === "add" && command.text)
             return void addTodo(context, props.sessionID, command.text, command.priority, command.due)
           if (command.action === "done") {

@@ -46,6 +46,7 @@ export const STRINGS = {
       "/todo done <id>             mark a task completed",
       "/todo init                  create TODO.md",
       "/todo import                convert plain bullets to checkboxes",
+      "/todo renumber              rewrite ids 1..N by priority and due date",
       "/todo help                  this help",
     ],
   },
@@ -61,6 +62,7 @@ export const STRINGS = {
     noTask: (id: number) => `No task with id ${id}`,
     imported: (n: number) => `Imported ${n} ${n === 1 ? "item" : "items"}`,
     noneToImport: "No plain bullets to import",
+    renumbered: "IDs rewritten from 1",
   },
   commands: {
     priority: "Todo: change priority",
@@ -88,6 +90,9 @@ export const STRINGS = {
     duePlaceholder: "YYYY-MM-DD",
     invalidDue: "Invalid date: use YYYY-MM-DD",
     delete: "Delete task",
+    renumber: "Renumber IDs",
+    renumberMessage: (n: number) =>
+      `IDs of the ${n} ${n === 1 ? "task" : "tasks"} in this file are rewritten from 1, highest priority first and then by due date. References to old ids in other sessions or messages will point at a different task.`,
     import: "Import bullets",
     importMessage: (n: number) =>
       `${n} plain list ${n === 1 ? "item" : "items"} will become checkboxes. Code blocks and existing checkboxes are left untouched.`,

@@ -1,7 +1,7 @@
 import { STRINGS } from "./strings.ts"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { TODO_PRIORITIES, applyChecklist, importBullets, isOverdue, parseChecklist, removeChecklistItem, type Todo, type TodoPriority } from "./checklist.ts"
+import { TODO_PRIORITIES, applyChecklist, importBullets, isOverdue, parseChecklist, removeChecklistItem, renumberChecklist, type Todo, type TodoPriority } from "./checklist.ts"
 
 export type SelectOption = {
   title: string
@@ -249,16 +249,18 @@ export type TodoCommand =
   | { action: "add"; text: string; priority?: TodoPriority; due?: string }
   | { action: "done"; id: number }
   | { action: "import" }
+  | { action: "renumber" }
   | { action: "help" }
 
 /**
- * `/todo`, `/todo init`, `/todo import`, `/todo add <text> [high|medium|low] [due=YYYY-MM-DD]`,
+ * `/todo`, `/todo init`, `/todo import`, `/todo renumber`, `/todo add <text> [high|medium|low] [due=YYYY-MM-DD]`,
  * `/todo done <id>`, `/todo help`; anything else opens the list.
  */
 export function parseTodoCommand(input: string): TodoCommand {
   const trimmed = input.trim()
   if (/^init$/i.test(trimmed)) return { action: "init" }
   if (/^import$/i.test(trimmed)) return { action: "import" }
+  if (/^renumber$/i.test(trimmed)) return { action: "renumber" }
   if (/^(help|-h|\?)$/i.test(trimmed)) return { action: "help" }
   const done = /^done\s+#?(\d+)$/i.exec(trimmed)
   if (done) return { action: "done", id: Number(done[1]) }
@@ -433,6 +435,34 @@ const PRIORITY_OPTIONS: Array<SelectOption> = [
   { title: "Medium", value: "medium" },
   { title: "Low", value: "low" },
 ]
+
+/** The order `/todo renumber` hands out ids in: highest priority, then the nearest due date, then the current order. */
+export function renumberOrder(todos: Array<Todo>): Array<number> {
+  return todos
+    .map((todo, index) => ({ todo, index }))
+    .sort((a, b) => {
+      const rank = (a.todo.priority ? PRIORITY_RANK[a.todo.priority] : 3) - (b.todo.priority ? PRIORITY_RANK[b.todo.priority] : 3)
+      if (rank !== 0) return rank
+      const due = (a.todo.due ?? "9999-99-99").localeCompare(b.todo.due ?? "9999-99-99")
+      if (due !== 0) return due
+      return a.index - b.index
+    })
+    .map((entry) => entry.index)
+}
+
+/** Rewrites every id as 1..N after a confirm: ids are stable by design, so this invalidates old references. */
+export async function renumberTodo(context: DialogContext, sessionID: string): Promise<boolean> {
+  const loaded = readFile(directoryOf(context, sessionID))
+  if (!loaded || loaded.todos.length === 0) return false
+  const ok = await context.ui.dialog.confirm({
+    title: STRINGS.prompts.renumber,
+    message: STRINGS.prompts.renumberMessage(loaded.todos.length),
+  })
+  if (!ok) return false
+  commit(loaded.file, renumberChecklist(loaded.text, renumberOrder(loaded.todos)))
+  context.ui.toast.show({ message: STRINGS.toasts.renumbered, variant: "success" })
+  return true
+}
 
 /** Changes or clears the priority of one task, keeping the rest of its line. */
 export async function changePriority(context: DialogContext, sessionID: string, value: string): Promise<void> {

@@ -128,6 +128,23 @@ export function removeChecklistItem(text: string, index: number): string {
   return lines.filter((_, position) => position !== item.index).join("\n")
 }
 
+/**
+ * Rewrites ids as 1..N following `order` (indices into the parsed items).
+ * Written directly instead of going through applyChecklist: reusing existing
+ * ids would make that function hand a task the metadata of another one.
+ */
+export function renumberChecklist(text: string, order: Array<number>): string {
+  const { items, lines } = parseChecklist(text)
+  const out = [...lines]
+  order.forEach((itemIndex, position) => {
+    const item = items[itemIndex]
+    if (!item) return
+    const todo = { ...item.todo, id: position + 1 }
+    out[item.index] = `${item.prefix}[${MARK[todo.status]}] ${todo.content}${renderMeta(todo)}`
+  })
+  return out.join("\n")
+}
+
 /** True when the task is still open and its due date is before today. */
 export function isOverdue(todo: Todo): boolean {
   if (!todo.due) return false

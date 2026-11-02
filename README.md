@@ -73,6 +73,7 @@ never reused, so a patch cannot hit the wrong task after a reorder.
 | `/todo done <id>` | Marks a task completed |
 | `/todo init` | Creates `TODO.md` with `## To do` and `## Done` |
 | `/todo import` | Adopts a hand-written list: plain `-`, `*` and `1.` items become checkboxes, after a preview |
+| `/todo renumber` | Rewrites ids as 1..N, highest priority first then nearest due date, after a warning |
 | `/todo help` | Lists the subcommands (they are arguments of `/todo`, so the palette shows only `/todo`) |
 
 ### Dialog
@@ -184,6 +185,11 @@ The plugins live in the same repository as the sources; OpenCode resolves `@open
 to be installed locally to try a change.
 
 ## Changelog
+
+### 0.1.7
+
+- `/todo renumber` rewrites ids as 1..N, highest priority first and then by due date; it warns first, because ids are
+  stable by design and old references will point at another task.
 
 ### 0.1.6
 
