@@ -382,6 +382,14 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         },
       },
       {
+        id: "opencode-todo-md.create",
+        title: STRINGS.commands.create,
+        bind: "ctrl+n",
+        run: () => {
+          if (!focusSearch()) void add()
+        },
+      },
+      {
         id: "opencode-todo-md.edit",
         title: STRINGS.commands.edit,
         bind: "ctrl+e",
@@ -513,7 +521,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
       <text>
         {pendingDelete()
           ? `ctrl+d again to delete ${pendingDelete()}`
-          : "Click: #id edits · ctrl+e edits · status toggles · priority cycles · due prompts · / searches · Esc closes"}
+          : "Click: #id edits · ctrl+n new · ctrl+e edits · status toggles · priority cycles · due prompts · / searches · Esc closes"}
       </text>
     </box>
   )

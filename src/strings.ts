@@ -76,6 +76,7 @@ export const STRINGS = {
     end: "Todo: last page",
     toggle: "Todo: toggle",
     edit: "Todo: edit",
+    create: "Todo: new task",
     openList: "Todo: open list",
   },
   prompts: {
