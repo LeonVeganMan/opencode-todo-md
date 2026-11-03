@@ -13,6 +13,7 @@ export type Settings = {
   showCreated: boolean
   showDone: boolean
   showTags: boolean
+  showHints: boolean
   descriptionWidth: number
   stripMax: number
   stripCollapse: number
@@ -33,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showCreated: true,
   showDone: true,
   showTags: true,
+  showHints: true,
   descriptionWidth: 50,
   stripMax: 30,
   stripCollapse: 3,
@@ -73,6 +75,7 @@ export function mergeSettings(base: Settings, patch: unknown): Settings {
     showCreated: bool(raw.showCreated, base.showCreated),
     showDone: bool(raw.showDone, base.showDone),
     showTags: bool(raw.showTags, base.showTags),
+    showHints: bool(raw.showHints, base.showHints),
     descriptionWidth: clamp(raw.descriptionWidth, 20, 80, base.descriptionWidth),
     stripMax: clamp(raw.stripMax, 10, 80, base.stripMax),
     stripCollapse: clamp(raw.stripCollapse, 1, 20, base.stripCollapse),

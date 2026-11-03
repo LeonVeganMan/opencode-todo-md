@@ -485,15 +485,6 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
 
   return (
     <box flexDirection="column" paddingLeft={settings.padding} paddingTop={settings.padding}>
-      <text fg={theme().textMuted}>
-        {pendingDelete()
-          ? `ctrl+d again to delete ${pendingDelete()} · Esc cancels`
-          : "Click: #id edits · ctrl+n new · ctrl+e edits · status toggles · priority cycles"}
-      </text>
-      {!pendingDelete() && (
-        // Two lines: one hint line already runs past the xlarge width and the host clips it.
-        <text fg={theme().textMuted}>ctrl+d twice deletes · due prompts · / searches · Esc closes</text>
-      )}
       <box flexDirection="row" gap={1}>
         <For each={FILTER_ORDER}>
           {(value) => (
@@ -607,6 +598,14 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         <text onMouseUp={() => { setPage((value) => Math.min(pages() - 1, value + 1)); setCursor(0) }}>▼</text>
         <text fg={theme().textMuted}>{STRINGS.dialog.count(rows().length)}</text>
       </box>
+      <Show when={settings.showHints}>
+        {/* Clicking the bar opens the full list of keys: one line is all that fits here. */}
+        <text fg={theme().textMuted} onMouseUp={() => openHelpDialog(context)}>
+          {pendingDelete()
+            ? `ctrl+d again to delete ${pendingDelete()} · Esc cancels`
+            : "#id edit · ctrl+n new · ctrl+e edit · ctrl+d del · click for all keys"}
+        </text>
+      </Show>
     </box>
   )
 }
@@ -645,6 +644,7 @@ const settingRows = (settings: Settings): Array<SettingRow> => [
   { label: "Delete", value: settings.deleteMode === "double" ? "double ctrl+d" : "confirmation dialog", next: () => toggle(settings, "deleteMode", ["double", "dialog"] as const) },
   { label: "Renumber after done", value: yesNo(settings.renumberAfterDone), next: () => ({ ...settings, renumberAfterDone: !settings.renumberAfterDone }) },
   { label: "Create TODO.md automatically", value: yesNo(settings.autoInit), next: () => ({ ...settings, autoInit: !settings.autoInit }) },
+  { label: "Show shortcut bar", value: yesNo(settings.showHints), next: () => ({ ...settings, showHints: !settings.showHints }) },
   { label: "Save to", value: settings.saveTo === "project" ? ".opencode/todo-md.json" : "~/.config/opencode/todo-md.json", next: () => toggle(settings, "saveTo", ["global", "project"] as const) },
 ]
 

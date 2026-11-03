@@ -174,6 +174,7 @@ the defaults, so a broken file never takes the panel down.
 | `deleteMode` | `double` (two `ctrl+d`), `dialog` (confirmation) | `double` |
 | `renumberAfterDone` | run `/todo renumber` after completing a task | off |
 | `autoInit` | create `TODO.md` the first time `/todo` opens | off |
+| `showHints` | shortcut bar under the list (click it for the full key list) | on |
 | `saveTo` | `global`, `project` | `global` |
 
 `renumberAfterDone` rewrites every id, so references in older messages stop matching: leave it off unless you do not
