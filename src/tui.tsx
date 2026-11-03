@@ -266,7 +266,8 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   const theme = () => colorsOf(context)
   const settings = loadSettings(directoryOf(context, props.sessionID))
   // Recomputed on every open: a resize between dialogs is picked up.
-  const PAGE = settings.pageRows > 0 ? settings.pageRows : pageSize()
+  // The border eats two rows: the page size must not push the hint off the panel.
+  const PAGE = settings.pageRows > 0 ? settings.pageRows : Math.max(4, pageSize() - (settings.borderStyle === "none" ? 0 : 2))
   // A size set before show() is ignored on this build, so ask again from inside the dialog.
   onMount(() => context.ui.dialog.set?.({ size: "xlarge", centered: true }))
   const [tick, setTick] = createSignal(0)
@@ -485,7 +486,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   }))
 
   return (
-    <box flexDirection="column" border borderStyle="rounded" borderColor={pendingDelete() ? (theme().error ?? ROW_COLORS.overdue) : focusSearch() ? (theme().info ?? ROW_COLORS.id) : theme().textMuted} paddingLeft={settings.padding} paddingTop={settings.padding}>
+    <box flexDirection="column" border={settings.borderStyle !== "none"} borderStyle={settings.borderStyle === "none" ? undefined : settings.borderStyle} borderColor={pendingDelete() ? (theme().error ?? ROW_COLORS.overdue) : focusSearch() ? (theme().info ?? ROW_COLORS.id) : theme().textMuted} paddingLeft={settings.padding} paddingTop={settings.padding}>
       <box flexDirection="row" gap={1}>
         <For each={FILTER_ORDER}>
           {(value) => (
@@ -630,6 +631,7 @@ const yesNo = (value: boolean) => (value ? "on" : "off")
 
 const settingRows = (settings: Settings): Array<SettingRow> => [
   { label: "Padding", value: String(settings.padding), next: () => toggle(settings, "padding", [0, 1, 2] as const) },
+  { label: "Border", value: settings.borderStyle, next: () => toggle(settings, "borderStyle", ["rounded", "single", "none"] as const) },
   { label: "Palette", value: settings.palette, next: () => toggle(settings, "palette", ["theme", "fixed"] as const) },
   { label: "Column created", value: yesNo(settings.showCreated), next: () => ({ ...settings, showCreated: !settings.showCreated }) },
   { label: "Column done", value: yesNo(settings.showDone), next: () => ({ ...settings, showDone: !settings.showDone }) },

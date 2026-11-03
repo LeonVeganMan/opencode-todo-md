@@ -3,6 +3,7 @@ import { dirname, join } from "node:path"
 import type { SortKey, TodoFilter } from "./command.ts"
 
 export type Palette = "theme" | "fixed"
+export type BorderStyleOption = "rounded" | "single" | "none"
 export type DeleteMode = "double" | "dialog"
 export type SortOption = SortKey | "status"
 export type SaveScope = "project" | "global"
@@ -10,6 +11,7 @@ export type SaveScope = "project" | "global"
 export type Settings = {
   padding: number
   palette: Palette
+  borderStyle: BorderStyleOption
   showCreated: boolean
   showDone: boolean
   showTags: boolean
@@ -31,6 +33,7 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   padding: 1,
   palette: "theme",
+  borderStyle: "rounded",
   showCreated: true,
   showDone: true,
   showTags: true,
@@ -72,6 +75,7 @@ export function mergeSettings(base: Settings, patch: unknown): Settings {
   return {
     padding: clamp(raw.padding, 0, 2, base.padding),
     palette: pick(raw.palette, ["theme", "fixed"] as const, base.palette),
+    borderStyle: pick(raw.borderStyle, ["rounded", "single", "none"] as const, base.borderStyle),
     showCreated: bool(raw.showCreated, base.showCreated),
     showDone: bool(raw.showDone, base.showDone),
     showTags: bool(raw.showTags, base.showTags),
