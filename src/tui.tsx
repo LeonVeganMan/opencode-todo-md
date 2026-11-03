@@ -648,6 +648,9 @@ const settingRows = (settings: Settings): Array<SettingRow> => [
   { label: "Save to", value: settings.saveTo === "project" ? ".opencode/todo-md.json" : "~/.config/opencode/todo-md.json", next: () => toggle(settings, "saveTo", ["global", "project"] as const) },
 ]
 
+const LABEL_WIDTH = 30
+const VALUE_WIDTH = 24
+
 function SettingsDialog(props: { sessionID: string; directory: string; close: () => void }) {
   const context = usePlugin()
   const [current, setCurrent] = createSignal(loadSettings(props.directory))
@@ -706,8 +709,9 @@ function SettingsDialog(props: { sessionID: string; directory: string; close: ()
       <For each={settingRows(current())}>
         {(row) => (
           <box flexDirection="row" onMouseUp={() => change(row.next())}>
-            <text flexShrink={0} fg={theme().textMuted}>{`${row.label}: `}</text>
-            <text flexShrink={0} fg={valueFg(row.value)}>{row.value}</text>
+            {/* Values share one right edge: a monospace pad keeps the column straight. */}
+            <text flexShrink={0} fg={theme().textMuted}>{row.label.padEnd(LABEL_WIDTH)}</text>
+            <text flexShrink={0} fg={valueFg(row.value)}>{row.value.padStart(VALUE_WIDTH)}</text>
           </box>
         )}
       </For>
