@@ -237,6 +237,13 @@ to be installed locally to try a change.
 
 ## Changelog
 
+### 0.1.12
+
+- Settings values share a right edge, and the dialog is drawn like the README screenshot.
+- The shortcut bar is one compact line at the bottom; clicking it opens the full key list, and `showHints` turns it off.
+- The help list is generated from `SHORTCUTS`, with a parity test against the bindings in the panel, and it no longer
+  overflows the dialog.
+
 ### 0.1.11
 
 - Per-column colours in the list, drawn from the host theme or from the fixed Catppuccin palette (`palette` setting).
