@@ -1,20 +1,21 @@
 /**
- * Keys the todo panel listens to. The help dialog renders this list, and a test
- * compares it with the `bind` values in `src/tui.tsx`, so the two cannot drift.
+ * The keys of the todo panel, in the order the help dialog prints them.
+ * A parity test reads src/tui.tsx and fails when this list and the registered
+ * bindings stop matching, so a rebind cannot leave the help behind.
  */
 export type Shortcut = { bind: string; title: string }
 
 export const SHORTCUTS: Array<Shortcut> = [
-  { bind: "/", title: "Search tasks" },
+  { bind: "/", title: "Search" },
   { bind: "up", title: "Cursor up" },
-  { bind: "down", title: "Cursor down, next page at the edge" },
+  { bind: "down", title: "Cursor down / next page" },
   { bind: "pageup", title: "Previous page" },
   { bind: "pagedown", title: "Next page" },
   { bind: "home", title: "First page" },
   { bind: "end", title: "Last page" },
-  { bind: "space", title: "Toggle the selected task" },
-  { bind: "ctrl+e", title: "Edit the selected task" },
+  { bind: "space", title: "Toggle selected task" },
+  { bind: "ctrl+e", title: "Edit selected task" },
   { bind: "ctrl+n", title: "New task" },
-  { bind: "ctrl+d", title: "Delete, twice and without a dialog" },
-  { bind: "escape", title: "Leave search, or close the panel" },
+  { bind: "ctrl+d", title: "Delete, pressed twice" },
+  { bind: "escape", title: "Leave search, or close" },
 ]

@@ -758,14 +758,16 @@ function HelpDialog(props: { close: () => void }) {
     commands: [{ id: "opencode-todo-md.help.close", title: STRINGS.commands.close, bind: "escape", run: () => props.close() }],
   }))
   return (
-    <box flexDirection="column" gap={1}>
+    <box flexDirection="column" paddingLeft={1} paddingTop={1}>
       <text>
         <b>{STRINGS.dialog.helpTitle}</b>
       </text>
+      <text> </text>
       {/* Generated from the bindings themselves: a rebind cannot leave this list behind. */}
       <For each={SHORTCUTS}>
-        {(row) => <text>{`${row.bind.padEnd(18)}${row.title}`}</text>}
+        {(row) => <text>{clip(`${row.bind.padEnd(9)}${row.title}`, 56)}</text>}
       </For>
+      <text> </text>
       <text fg={colorsOf(context).textMuted}>Esc closes</text>
     </box>
   )
