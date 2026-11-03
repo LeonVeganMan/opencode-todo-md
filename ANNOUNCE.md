@@ -50,5 +50,12 @@ Feedback welcome, especially on the dialog layout in narrow terminals.
 Repo: https://github.com/LeonVeganMan/opencode-todo-md
 npm: https://www.npmjs.com/package/opencode-todo-md
 
+## What's new in 0.1.13
+
+- Rounded borders on the list, the editor, the settings and the help; `borderStyle` picks `rounded`, `single` or `none`.
+- The border turns red while a delete is armed, and cyan while the search box has the keyboard.
+- The list scrolls instead of paging: the cursor walks every task and the view follows it.
+- Settings values are clipped to their column, `Save to` shows `global` or `project`, and the dialog centres itself at mount.
+
 Status: v0.1.13, 61 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
 run `/reload`, after installing or updating.
