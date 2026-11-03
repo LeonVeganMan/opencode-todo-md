@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { Plugin } from "@opencode/plugin"
-import { isOverdue, readTodos, type Todo } from "./checklist.ts"
+import { TODO_PRIORITIES, TODO_STATUSES, isOverdue, readTodos, type Todo } from "./checklist.ts"
 import { writeTodos } from "./write.ts"
 
 function render(todos: Array<Todo>): string {

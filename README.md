@@ -195,6 +195,11 @@ to be installed locally to try a change.
 
 ## Changelog
 
+### 0.1.9
+
+- Fix the plugin failing to load with `ReferenceError: TODO_STATUSES is not defined`: `src/index.ts` used
+  `TODO_STATUSES` and `TODO_PRIORITIES` without importing them, so 0.1.8 registered no tools at all.
+
 ### 0.1.8
 
 - `todo_write` merges by default: items without an `id` are appended and items with an `id` are updated, so a partial
