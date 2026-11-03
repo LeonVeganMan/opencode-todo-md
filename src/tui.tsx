@@ -93,7 +93,7 @@ function EditDialog(props: {
   }))
 
   return (
-    <box flexDirection="column" gap={1}>
+    <box flexDirection="column" gap={1} border borderStyle="rounded" borderColor={colorsOf(context).textMuted}>
       <text>Edit task</text>
       <Show when={props.todo.done}>
         <text>{`Completed ${props.todo.done}`}</text>
@@ -485,7 +485,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   }))
 
   return (
-    <box flexDirection="column" border borderStyle="rounded" borderColor={focusSearch() ? (theme().info ?? ROW_COLORS.id) : theme().textMuted} paddingLeft={settings.padding} paddingTop={settings.padding}>
+    <box flexDirection="column" border borderStyle="rounded" borderColor={pendingDelete() ? (theme().error ?? ROW_COLORS.overdue) : focusSearch() ? (theme().info ?? ROW_COLORS.id) : theme().textMuted} paddingLeft={settings.padding} paddingTop={settings.padding}>
       <box flexDirection="row" gap={1}>
         <For each={FILTER_ORDER}>
           {(value) => (
@@ -704,7 +704,7 @@ function SettingsDialog(props: { sessionID: string; directory: string; close: ()
             ? (theme().info ?? ROW_COLORS.id)
             : theme().text
   return (
-    <box flexDirection="column" paddingLeft={1} paddingTop={1}>
+    <box flexDirection="column" paddingLeft={1} paddingTop={1} border borderStyle="rounded" borderColor={colorsOf(context).textMuted}>
       <text><b>{`Settings${dirty() ? " *" : ""}`}</b></text>
       <text> </text>
       <For each={settingRows(current())}>
@@ -762,7 +762,7 @@ function HelpDialog(props: { close: () => void }) {
     commands: [{ id: "opencode-todo-md.help.close", title: STRINGS.commands.close, bind: "escape", run: () => props.close() }],
   }))
   return (
-    <box flexDirection="column" paddingLeft={1} paddingTop={1}>
+    <box flexDirection="column" paddingLeft={1} paddingTop={1} border borderStyle="rounded" borderColor={colorsOf(context).textMuted}>
       <text>
         <b>{STRINGS.dialog.helpTitle}</b>
       </text>
