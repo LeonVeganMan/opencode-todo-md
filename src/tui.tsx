@@ -485,6 +485,15 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
 
   return (
     <box flexDirection="column" paddingLeft={settings.padding} paddingTop={settings.padding}>
+      <text fg={theme().textMuted}>
+        {pendingDelete()
+          ? `ctrl+d again to delete ${pendingDelete()} · Esc cancels`
+          : "Click: #id edits · ctrl+n new · ctrl+e edits · status toggles · priority cycles"}
+      </text>
+      {!pendingDelete() && (
+        // Two lines: one hint line already runs past the xlarge width and the host clips it.
+        <text fg={theme().textMuted}>ctrl+d twice deletes · due prompts · / searches · Esc closes</text>
+      )}
       <box flexDirection="row" gap={1}>
         <For each={FILTER_ORDER}>
           {(value) => (
@@ -598,15 +607,6 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         <text onMouseUp={() => { setPage((value) => Math.min(pages() - 1, value + 1)); setCursor(0) }}>▼</text>
         <text fg={theme().textMuted}>{STRINGS.dialog.count(rows().length)}</text>
       </box>
-      <text fg={theme().textMuted}>
-        {pendingDelete()
-          ? `ctrl+d again to delete ${pendingDelete()} · Esc cancels`
-          : "Click: #id edits · ctrl+n new · ctrl+e edits · status toggles · priority cycles"}
-      </text>
-      {!pendingDelete() && (
-        // Two lines: one hint line already runs past the xlarge width and the host clips it.
-        <text fg={theme().textMuted}>ctrl+d twice deletes · due prompts · / searches · Esc closes</text>
-      )}
     </box>
   )
 }
