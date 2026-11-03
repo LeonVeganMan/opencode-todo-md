@@ -1,6 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { Plugin, usePlugin } from "@opencode/plugin/tui"
 import {
   FILTER_LABEL,
@@ -266,8 +267,8 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   const theme = () => colorsOf(context)
   const settings = loadSettings(directoryOf(context, props.sessionID))
   // Recomputed on every open: a resize between dialogs is picked up.
-  // The border eats two rows: the page size must not push the hint off the panel.
-  const PAGE = settings.pageRows > 0 ? settings.pageRows : Math.max(4, pageSize() - (settings.borderStyle === "none" ? 0 : 2))
+  // The border eats two rows: the list height must not push the hint off the panel.
+  const ROWS = settings.pageRows > 0 ? settings.pageRows : Math.max(4, pageSize() - (settings.borderStyle === "none" ? 0 : 2))
   // A size set before show() is ignored on this build, so ask again from inside the dialog.
   onMount(() => context.ui.dialog.set?.({ size: "xlarge", centered: true }))
   const [tick, setTick] = createSignal(0)
@@ -275,9 +276,10 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   const [priority, setPriority] = createSignal<TodoPriority | undefined>()
   const [tag, setTag] = createSignal<string | undefined>()
   const [sort, setSort] = createSignal<SortKey | undefined>(settings.initialSort === "status" ? undefined : settings.initialSort)
-  const [page, setPage] = createSignal(0)
   const [query, setQuery] = createSignal("")
+  // The cursor is an index into the filtered rows: the scrollbox keeps it in view.
   const [cursor, setCursor] = createSignal(0)
+  const [scroll, setScroll] = createSignal<ScrollBoxRenderable>()
   // The search box takes the keyboard only when it asks: `/` focuses it, Esc hands it back to the list.
   const [focusSearch, setFocusSearch] = createSignal(false)
   const [pendingDelete, setPendingDelete] = createSignal<string | undefined>()
@@ -304,32 +306,28 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
     return sort() ? sortBy(filtered, sort()!) : sortTodos(filtered)
   })
   const tagWidth = createMemo(() => tagWidthOf(base()))
-  const pages = createMemo(() => Math.max(1, Math.ceil(rows().length / PAGE)))
-  const current = () => Math.min(page(), pages() - 1)
-  const visible = () => rows().slice(current() * PAGE, current() * PAGE + PAGE)
+  // Clamped cursor: deletes and filters can shrink the list under it.
+  const at = () => Math.min(cursor(), Math.max(0, rows().length - 1))
+
+  // Scroll only as much as the cursor needs: down past the last visible row, up past the first.
+  // scrollHeight is measured by the previous frame, so the guard keeps the very first run harmless.
+  createEffect(() => {
+    const box = scroll()
+    if (!box) return
+    const c = at()
+    const top = box.scrollTop
+    if (c < top) box.scrollTo(c)
+    else if (c >= top + ROWS) box.scrollTo(c - ROWS + 1)
+  })
 
   const key = (todo: Todo, index: number) => (todo.id !== undefined ? `#${todo.id}` : `t${index}`)
   const refresh = () => setTick((value) => value + 1)
 
   // The list keeps its own cursor while the search box does not have the keyboard.
-  const selected = () => visible()[Math.min(cursor(), Math.max(0, visible().length - 1))]
+  const selected = () => rows()[at()]
   const move = (delta: number) => {
     setPendingDelete(undefined)
-    const next = cursor() + delta
-    // Walking past the last visible row turns the page instead of stopping at the edge.
-    if (next >= visible().length) {
-      if (current() >= pages() - 1) return
-      setPage(current() + 1)
-      setCursor(0)
-      return
-    }
-    if (next < 0) {
-      if (current() === 0) return
-      setPage(current() - 1)
-      setCursor(PAGE - 1)
-      return
-    }
-    setCursor(next)
+    setCursor((value) => Math.max(0, Math.min(rows().length - 1, value + delta)))
   }
   // Two ctrl+d like the editor: the first arms the task, the second deletes it. No dialog to dismiss.
   const deleteSelected = () => {
@@ -355,7 +353,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
     if (list.length === 0) return
     const index = tag() ? list.indexOf(tag()!) : -1
     setTag(index + 1 >= list.length ? undefined : list[index + 1])
-    setPage(0)
+    setCursor(0)
   }
   const cyclePriority = (todo: Todo, index: number) => {
     const next = NEXT_PRIORITY[(NEXT_PRIORITY.indexOf(todo.priority) + 1) % NEXT_PRIORITY.length]
@@ -411,8 +409,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         run: () => {
           if (focusSearch()) return
           setPendingDelete(undefined)
-          setPage(Math.max(0, current() - 1))
-          setCursor(0)
+          move(-ROWS)
         },
       },
       {
@@ -422,8 +419,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         run: () => {
           if (focusSearch()) return
           setPendingDelete(undefined)
-          setPage(Math.min(pages() - 1, current() + 1))
-          setCursor(0)
+          move(ROWS)
         },
       },
       {
@@ -433,8 +429,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         run: () => {
           if (focusSearch()) return
           setPendingDelete(undefined)
-          setPage(0)
-          setCursor(0)
+          move(-rows().length)
         },
       },
       {
@@ -444,8 +439,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         run: () => {
           if (focusSearch()) return
           setPendingDelete(undefined)
-          setPage(pages() - 1)
-          setCursor(0)
+          move(rows().length)
         },
       },
       {
@@ -495,7 +489,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
               fg={value === filter() ? theme().text : theme().textMuted}
               onMouseUp={() => {
                 setFilter(value)
-                setPage(0)
+                setCursor(0)
               }}
             >{`${value === filter() ? "●" : "○"} ${FILTER_LABEL[value]} (${counts()[value]})`}</text>
           )}
@@ -510,7 +504,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
               fg={value === priority() ? priorityColor(theme(), value) : theme().textMuted}
               onMouseUp={() => {
                 setPriority(value)
-                setPage(0)
+                setCursor(0)
               }}
             >{`${value === priority() ? "●" : "○"} ${value ?? "all"}`}</text>
           )}
@@ -524,7 +518,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         <text flexShrink={0} fg={theme().textMuted} onMouseUp={cycleTag}>{`Tag: ${tag() ?? (tags().join(" ") || "none")} ▸`}</text>
         <text flexShrink={0} fg={theme().textMuted} onMouseUp={() => {
           setSort(nextSort(sort()))
-          setPage(0)
+          setCursor(0)
         }}>{`Sort: ${SORT_LABEL[sort() ?? "status"]} ▸`}</text>
         <text flexShrink={0} fg={theme().textMuted} onMouseUp={() => openSettingsDialog(context, props.sessionID)}>Settings ▸</text>
       </box>
@@ -539,7 +533,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         onMouseUp={() => setFocusSearch(true)}
         onSubmit={(value) => {
           setQuery(value)
-          setPage(0)
+          setCursor(0)
           // Enter applies the search and hands the keyboard back to the list, so Esc is only the close key.
           setFocusSearch(false)
         }}
@@ -560,44 +554,54 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
                 const column = HEADER_SORTS[position]
                 if (!column) return
                 setSort(sort() === column ? undefined : column)
-                setPage(0)
+                setCursor(0)
               }}
             >{`${headerLabel(cell, position)} `}</text>
           )}
         </For>
       </box>
 
-      <For each={visible()}>
-        {({ todo, index }, row) => (
-          <box flexDirection="row">
-            <text flexShrink={0} fg={theme().text}>{row() === cursor() ? "▸ " : "  "}</text>
-            <For each={cellsOf(todo, tagWidth(), settings.descriptionWidth)
-              .map((cell, position) => ({ cell, position }))
-              .filter(({ position }) => visibleColumn(settings, position))}>
-              {({ cell, position }) => (
-                <text
-                  flexShrink={0}
-                  fg={cellColor(theme(), todo, position, settings.palette)}
-                  onMouseUp={() => {
-                    if (position === 0) return void editTodo(context, props.sessionID, key(todo, index))
-                    if (position === 1 || position === 7) return toggle(todo, index)
-                    if (position === 2) return cyclePriority(todo, index)
-                    if (position === 4) return void changeDue(context, props.sessionID, key(todo, index)).then(refresh)
-                    if (position === 6) setTag(tagsOf(todo.content)[0])
-                  }}
-                >{row() === cursor() ? <b>{`${cell} `}</b> : `${cell} `}</text>
-              )}
-            </For>
-          </box>
-        )}
-      </For>
+      <scrollbox
+        // A real list, not pages: fixed height, own scroll offset, mouse wheel included.
+        ref={setScroll}
+        height={ROWS}
+        flexShrink={0}
+        flexDirection="column"
+        focusable={false}
+        verticalScrollbarOptions={{ visible: false }}
+      >
+        <For each={rows()}>
+          {({ todo, index }, row) => (
+            <box flexDirection="row">
+              <text flexShrink={0} fg={theme().text}>{row() === at() ? "▸ " : "  "}</text>
+              <For each={cellsOf(todo, tagWidth(), settings.descriptionWidth)
+                .map((cell, position) => ({ cell, position }))
+                .filter(({ position }) => visibleColumn(settings, position))}>
+                {({ cell, position }) => (
+                  <text
+                    flexShrink={0}
+                    fg={cellColor(theme(), todo, position, settings.palette)}
+                    onMouseUp={() => {
+                      if (position === 0) return void editTodo(context, props.sessionID, key(todo, index))
+                      if (position === 1 || position === 7) return toggle(todo, index)
+                      if (position === 2) return cyclePriority(todo, index)
+                      if (position === 4) return void changeDue(context, props.sessionID, key(todo, index)).then(refresh)
+                      if (position === 6) setTag(tagsOf(todo.content)[0])
+                    }}
+                  >{row() === at() ? <b>{`${cell} `}</b> : `${cell} `}</text>
+                )}
+              </For>
+            </box>
+          )}
+        </For>
+      </scrollbox>
 
       <text> </text>
 
       <box flexDirection="row" gap={2}>
-        <text onMouseUp={() => { setPage((value) => Math.max(0, value - 1)); setCursor(0) }}>▲</text>
-        <text fg={theme().textMuted}>{`${current() + 1}/${pages()}`}</text>
-        <text onMouseUp={() => { setPage((value) => Math.min(pages() - 1, value + 1)); setCursor(0) }}>▼</text>
+        <text onMouseUp={() => move(-ROWS)}>▲</text>
+        <text fg={theme().textMuted}>{rows().length ? `${at() + 1}/${rows().length}` : "0/0"}</text>
+        <text onMouseUp={() => move(ROWS)}>▼</text>
         <text fg={theme().textMuted}>{STRINGS.dialog.count(rows().length)}</text>
       </box>
       <Show when={settings.showHints}>
@@ -641,7 +645,7 @@ const settingRows = (settings: Settings): Array<SettingRow> => [
   { label: "Strip collapse after", value: String(settings.stripCollapse), next: () => toggle(settings, "stripCollapse", [3, 5, 8]) },
   { label: "Strip shows completed", value: yesNo(settings.stripCompleted), next: () => ({ ...settings, stripCompleted: !settings.stripCompleted }) },
   { label: "Strip header colour", value: yesNo(settings.stripHeaderColor), next: () => ({ ...settings, stripHeaderColor: !settings.stripHeaderColor }) },
-  { label: "Rows per page", value: settings.pageRows === 0 ? "auto" : String(settings.pageRows), next: () => toggle(settings, "pageRows", [0, 4, 6, 8, 10, 12]) },
+  { label: "List rows", value: settings.pageRows === 0 ? "auto" : String(settings.pageRows), next: () => toggle(settings, "pageRows", [0, 4, 6, 8, 10, 12]) },
   { label: "Start filter", value: settings.initialFilter, next: () => toggle(settings, "initialFilter", ["all", "open", "closed", "overdue"] as const) },
   { label: "Start sort", value: settings.initialSort, next: () => toggle(settings, "initialSort", ["status", "due", "priority", "created", "done", "id"] as const) },
   { label: "Delete", value: settings.deleteMode === "double" ? "double ctrl+d" : "confirmation dialog", next: () => toggle(settings, "deleteMode", ["double", "dialog"] as const) },

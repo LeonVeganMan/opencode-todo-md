@@ -16,7 +16,7 @@ breaking the metadata.
 ## Features
 
 - `todo_write` / `todo_read` tools: the agent replaces the whole list or patches single items by id.
-- `/todo`: a self-drawn dialog with filters, tags, sorting, search, paging and per-cell actions.
+- `/todo`: a self-drawn dialog with filters, tags, sorting, search, scrolling and per-cell actions.
 - Sidebar strip reading `<session directory>/TODO.md`, refreshed on writes, on completed tool calls and every 60s.
 - Stable ids, priorities, due dates, creation and completion dates, `@tags` derived from the task text.
 - Checkboxes are rewritten in place: headings, notes and any other line of `TODO.md` are never touched.
@@ -98,28 +98,28 @@ Search and press Enter (open, high, #12, @tag)
 #id  st  prio  created     due         done        tag       description
 #14  [ ] high  2026-10-28  2026-11-07  -           @android  Test credit pack…
 
-▲ 1/2 ▼  14 tasks
+▲ 1/14 ▼  14 tasks
 ```
 
 - State tabs carry counters; `Tag:` cycles the tags found in the file; `Sort:` cycles status, due, priority, created,
   done and id.
 - `＋ New task` opens a prompt for the text and a picker for the priority, then appends to `TODO.md`.
-- `▲`/`▼` page through the list, `pageSize()` tasks per page (4 to 12, from the terminal height).
+- `▲`/`▼` scroll the list by one screen (4 to 12 rows, from the terminal height); the mouse wheel works too.
 - Search applies on Enter and understands `open`, `done`, `cancelled`, `high`, `medium`, `low`, `#12`, `@tag` and free
   text.
 - One line per task, description last and clipped with `…` when the panel is narrow. Click `#id` to edit, `st` or the
   description to toggle completed, `prio` to cycle, `due` to ask for a date, `tag` to filter by that task's first tag.
 - Click the `#id`, `prio`, `created`, `due` or `done` header to sort by that column; the sorted column is marked with
   `▲`, a second click restores the default order.
-- The list has a cursor (`▸`): `↑`/`↓` move it, and walking past the last row of a page turns the page, so the cursor
-  never stops at the edge. `space` toggles the selected task, `ctrl+e` edits it, `ctrl+n` adds a task, `PgUp`/`PgDn` change page, `Home`/`End`
-  jump to the first or last page.
+- The list has a cursor (`▸`): `↑`/`↓` move it and the list scrolls just enough to keep it visible, so the cursor
+  never stops at the edge. `space` toggles the selected task, `ctrl+e` edits it, `ctrl+n` adds a task, `PgUp`/`PgDn` scroll one
+  screen, `Home`/`End` jump to the first or last task.
 - `ctrl+d` arms the selected task and shows `ctrl+d again to delete`: the second press removes the line, no dialog.
 - `/` gives the keyboard to the search box; `Enter` applies the query and gives the keyboard back to the list. `Esc`
   closes the dialog.
 
 When the editor closes, the list reopens, so editing several tasks in a row is one flow. The dialog state (filter,
-tag, sort, page) restarts when you come back from the editor.
+tag, sort, scroll position) restarts when you come back from the editor.
 
 The editor itself (the `#id` cell) has the task text in a focused input, a row of priority chips and a row of
 due chips (`none`, `today`, `+7d`, `+30d`). `✎ due` swaps focus to a second input where any `YYYY-MM-DD` can be typed;
@@ -168,7 +168,7 @@ the defaults, so a broken file never takes the panel down.
 | `stripCollapse` | 1–20 open tasks before the strip folds | 3 |
 | `stripCompleted` | show completed tasks in the strip | off |
 | `stripHeaderColor` | colour the strip header by the highest priority | on |
-| `pageRows` | 0 (fit the terminal) or 4–30 | 0 |
+| `pageRows` | list rows: 0 (fit the terminal) or 4–30 | 0 |
 | `initialFilter` | `all`, `open`, `closed`, `overdue` | `all` |
 | `initialSort` | `status`, `id`, `priority`, `created`, `due`, `done` | `status` |
 | `deleteMode` | `double` (two `ctrl+d`), `dialog` (confirmation) | `double` |
@@ -250,7 +250,7 @@ to be installed locally to try a change.
 - Configurable padding inside the panel, and `/todo settings`: 17 options stored in a global or per-project
   `todo-md.json`, read by both the dialog and the sidebar strip.
 - Column `created`, `done` and `tag` can be hidden; the description width is configurable.
-- The sidebar strip width, fold threshold, completed tasks and header colour are configurable, as are rows per page,
+- The sidebar strip width, fold threshold, completed tasks and header colour are configurable, as are the visible list rows,
   the starting filter and sort, the delete confirmation and automatic `TODO.md` creation.
 
 ### 0.1.10
