@@ -37,6 +37,7 @@ import {
   type TodoFilter,
 } from "./command.ts"
 import { createRefresher } from "./refresh.ts"
+import { SHORTCUTS } from "./shortcuts.ts"
 import { STRINGS } from "./strings.ts"
 import { pageSize } from "./page.ts"
 import { DEFAULT_SETTINGS, loadSettings, mergeSettings, saveSettings, type Palette, type Settings } from "./settings.ts"
@@ -761,7 +762,10 @@ function HelpDialog(props: { close: () => void }) {
       <text>
         <b>{STRINGS.dialog.helpTitle}</b>
       </text>
-      <For each={STRINGS.dialog.help}>{(line) => <text>{line}</text>}</For>
+      {/* Generated from the bindings themselves: a rebind cannot leave this list behind. */}
+      <For each={SHORTCUTS}>
+        {(row) => <text>{`${row.bind.padEnd(18)}${row.title}`}</text>}
+      </For>
       <text fg={colorsOf(context).textMuted}>Esc closes</text>
     </box>
   )

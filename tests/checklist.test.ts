@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { applyChecklist, importBullets, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, renumberChecklist, today } from "../src/checklist.ts"
 import { MARKERS, STRINGS } from "../src/strings.ts"
+import { SHORTCUTS } from "../src/shortcuts.ts"
 import { pageSize } from "../src/page.ts"
 import { DEFAULT_SETTINGS, loadSettings, mergeSettings, projectSettingsFile, saveSettings } from "../src/settings.ts"
 import { TABLE_HEADER, addTodo, changeDue, completeTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, removeTodo, renumberOrder, sortBy, summaryTitle, tableHeader, tableRow, descriptionOf, tagWidthOf, tagsOf, toggleTodo, todosFor, updateTodo } from "../src/command.ts"
@@ -654,5 +655,18 @@ describe("settings", () => {
       else process.env.XDG_CONFIG_HOME = previous
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe("help from the keymap", () => {
+  test("the help list and the dialog bindings are the same set", () => {
+    const source = readFileSync(new URL("../src/tui.tsx", import.meta.url), "utf8")
+    const start = source.indexOf("function TodoDialog(")
+    const end = source.indexOf("function SettingsDialog(")
+    expect(start).toBeGreaterThan(-1)
+    expect(end).toBeGreaterThan(start)
+    const binds = [...source.slice(start, end).matchAll(/bind: "([^"]+)"/g)].map((match) => match[1])
+    // Both directions: a missing entry in the help or a stale entry in the list fails here.
+    expect([...new Set(binds)].sort()).toEqual(SHORTCUTS.map((row) => row.bind).sort())
   })
 })
