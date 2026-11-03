@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { applyChecklist, importBullets, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, renumberChecklist, today } from "../src/checklist.ts"
 import { MARKERS, STRINGS } from "../src/strings.ts"
 import { pageSize } from "../src/page.ts"
+import { DEFAULT_SETTINGS, loadSettings, mergeSettings, projectSettingsFile, saveSettings } from "../src/settings.ts"
 import { TABLE_HEADER, addTodo, changeDue, completeTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, removeTodo, renumberOrder, sortBy, summaryTitle, tableHeader, tableRow, descriptionOf, tagWidthOf, tagsOf, toggleTodo, todosFor, updateTodo } from "../src/command.ts"
 
 const NOTE = "# TODO\n\nNota da preservare.\n\n- [ ] uno\n- [ ] due\n"
@@ -573,7 +574,7 @@ describe("help command", () => {
 
   test("every subcommand listed in the help dialog is dispatched", () => {
     const verbs = STRINGS.dialog.help.slice(1).map((line) => line.slice("/todo ".length).split(" ")[0])
-    expect(verbs).toEqual(["add", "done", "init", "import", "renumber", "help"])
+    expect(verbs).toEqual(["add", "done", "init", "import", "renumber", "settings", "help"])
     for (const verb of verbs) {
       const input = verb === "add" ? "add buy milk" : verb === "done" ? "done 1" : verb
       expect(parseTodoCommand(input).action).toBe(verb)
@@ -582,13 +583,13 @@ describe("help command", () => {
 
   test("the help dialog documents every action parseTodoCommand can return", () => {
     // Send one input per action, then compare the two sets: neither a phantom command nor an undocumented one survives.
-    const spoken = ["", "init", "import", "renumber", "help", "done 1", "add buy milk"].map((input) => parseTodoCommand(input).action)
-    const verbs = ["add", "done", "init", "import", "renumber", "help"]
+    const spoken = ["", "init", "import", "renumber", "settings", "help", "done 1", "add buy milk"].map((input) => parseTodoCommand(input).action)
+    const verbs = ["add", "done", "init", "import", "renumber", "settings", "help"]
     const documented = STRINGS.dialog.help.map((line) => {
       const word = line.slice("/todo".length).trim().split(/\s+/)[0] ?? ""
       return verbs.includes(word) ? word : "list"
     })
-    expect(spoken.sort()).toEqual(["add", "done", "help", "import", "init", "list", "renumber"])
+    expect(spoken.sort()).toEqual(["add", "done", "help", "import", "init", "list", "renumber", "settings"])
     expect(documented.sort()).toEqual(spoken)
   })
 })
@@ -611,5 +612,47 @@ describe("renumber", () => {
     expect(out).toContain("Nota.")
     expect(out).toContain("- [ ] b <!-- id=1 priority=high due=2026-11-03 created=2026-10-01 -->")
     expect(out).toContain("- [x] a <!-- id=2 done=2026-10-30 created=2026-09-01 -->")
+  })
+})
+
+describe("settings", () => {
+  test("unknown and invalid values fall back to the defaults", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      padding: 99,
+      palette: "neon",
+      descriptionWidth: "wide",
+      stripCollapse: 0,
+      initialFilter: "mine",
+      deleteMode: 7,
+      extra: true,
+    })
+    expect(merged.padding).toBe(2)
+    expect(merged.palette).toBe("theme")
+    expect(merged.descriptionWidth).toBe(50)
+    expect(merged.stripCollapse).toBe(1)
+    expect(merged.initialFilter).toBe("all")
+    expect(merged.deleteMode).toBe("double")
+    expect(Object.keys(merged)).toEqual(Object.keys(DEFAULT_SETTINGS))
+  })
+
+  test("the project file wins over the global one and survives a round trip", () => {
+    const dir = mkdtempSync(join(tmpdir(), "todo-md-settings-"))
+    const previous = process.env.XDG_CONFIG_HOME
+    process.env.XDG_CONFIG_HOME = dir
+    try {
+      saveSettings(dir, { ...DEFAULT_SETTINGS, palette: "fixed", stripMax: 40, saveTo: "global" })
+      expect(loadSettings(dir).palette).toBe("fixed")
+      saveSettings(dir, { ...loadSettings(dir), palette: "theme", showTags: false, saveTo: "project" })
+      const merged = loadSettings(dir)
+      expect(merged.palette).toBe("theme")
+      expect(merged.stripMax).toBe(40)
+      expect(merged.showTags).toBe(false)
+      expect(existsSync(projectSettingsFile(dir))).toBe(true)
+      expect(parseTodoCommand(" settings ").action).toBe("settings")
+    } finally {
+      if (previous === undefined) delete process.env.XDG_CONFIG_HOME
+      else process.env.XDG_CONFIG_HOME = previous
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

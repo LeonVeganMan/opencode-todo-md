@@ -50,5 +50,5 @@ Feedback welcome, especially on the dialog layout in narrow terminals.
 Repo: https://github.com/LeonVeganMan/opencode-todo-md
 npm: https://www.npmjs.com/package/opencode-todo-md
 
-Status: v0.1.10, 58 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
+Status: v0.1.11, 60 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
 run `/reload`, after installing or updating.

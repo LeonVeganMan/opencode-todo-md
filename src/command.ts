@@ -131,7 +131,7 @@ export function tagsOf(content: string): Array<string> {
 }
 
 /** Header cells, one per column: the custom dialog renders each as its own clickable text. */
-export function headerCells(tagWidth: number = COL_TAGS): Array<string> {
+export function headerCells(tagWidth: number = COL_TAGS, contentWidth: number = COL_CONTENT): Array<string> {
   return [
     cell(STRINGS.table.id, COL_ID),
     cell(STRINGS.table.status, COL_STATUS),
@@ -140,7 +140,7 @@ export function headerCells(tagWidth: number = COL_TAGS): Array<string> {
     cell(STRINGS.table.due, COL_DUE),
     cell(STRINGS.table.done, COL_DONE),
     cell(STRINGS.table.tags, tagWidth),
-    cell(STRINGS.table.content, COL_CONTENT),
+    cell(STRINGS.table.content, contentWidth),
   ]
 }
 
@@ -155,7 +155,7 @@ export const TABLE_HEADER = tableHeader()
 const dueCell = (todo: Todo) => (todo.due ? `${isOverdue(todo) ? "!" : ""}${todo.due}` : "-")
 
 /** One table row: every column is fixed-width, so headers and rows line up. The description is the last column: at xlarge (116) the row fits on one line. */
-export function cellsOf(todo: Todo, tagWidth: number = COL_TAGS): Array<string> {
+export function cellsOf(todo: Todo, tagWidth: number = COL_TAGS, contentWidth: number = COL_CONTENT): Array<string> {
   return [
     cell(todo.id !== undefined ? `#${todo.id}` : "-", COL_ID),
     cell(STATUS_LABEL[todo.status] ?? todo.status, COL_STATUS),
@@ -164,7 +164,7 @@ export function cellsOf(todo: Todo, tagWidth: number = COL_TAGS): Array<string> 
     cell(dueCell(todo), COL_DUE),
     cell(todo.done ?? "-", COL_DONE),
     cell(tagsOf(todo.content).join(" "), tagWidth),
-    cell(descriptionOf(todo), COL_CONTENT),
+    cell(descriptionOf(todo), contentWidth),
   ]
 }
 
@@ -250,6 +250,7 @@ export type TodoCommand =
   | { action: "done"; id: number }
   | { action: "import" }
   | { action: "renumber" }
+  | { action: "settings" }
   | { action: "help" }
 
 /**
@@ -261,6 +262,7 @@ export function parseTodoCommand(input: string): TodoCommand {
   if (/^init$/i.test(trimmed)) return { action: "init" }
   if (/^import$/i.test(trimmed)) return { action: "import" }
   if (/^renumber$/i.test(trimmed)) return { action: "renumber" }
+  if (/^settings$/i.test(trimmed)) return { action: "settings" }
   if (/^(help|-h|\?)$/i.test(trimmed)) return { action: "help" }
   const done = /^done\s+#?(\d+)$/i.exec(trimmed)
   if (done) return { action: "done", id: Number(done[1]) }

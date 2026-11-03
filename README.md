@@ -82,6 +82,7 @@ never reused, so a patch cannot hit the wrong task after a reorder.
 | `/todo init` | Creates `TODO.md` with `## To do` and `## Done` |
 | `/todo import` | Adopts a hand-written list: plain `-`, `*` and `1.` items become checkboxes, after a preview |
 | `/todo renumber` | Rewrites ids as 1..N, highest priority first then nearest due date, after a warning |
+| `/todo settings` | Opens the settings dialog: click a row to cycle its value |
 | `/todo help` | Lists the subcommands (they are arguments of `/todo`, so the palette shows only `/todo`) |
 
 ### Dialog
@@ -137,6 +138,44 @@ The strip shows the open tasks of the session's project with ids, a priority col
 turns red when something is overdue and shows the highest priority among the open tasks. Clicking the header or a row
 opens `/todo`, clicking the arrow collapses or expands the list (it starts collapsed above 3 open tasks). A file with
 no checkboxes shows `Todo · no tasks` instead of nothing. Long task texts are clipped to one line instead of wrapping.
+
+## Settings
+
+`/todo settings` opens a dialog where every row cycles its value on click, or from the `Settings ▸` row in the todo
+panel. Nothing is written until you press **Save**; **Cancel** discards the draft, **Reset to defaults** restores
+every value, **Export JSON** and **Import JSON** move the whole set through a file. Settings are read when a dialog or
+the sidebar strip is created, so a change applies the next time it opens; `Esc` cancels.
+
+They live in two JSON files, both optional:
+
+| File | Scope |
+| --- | --- |
+| `~/.config/opencode/todo-md.json` | every project |
+| `<project>/.opencode/todo-md.json` | that project, wins over the global file |
+
+The `Save to` row decides which file **Save** writes. Unknown keys and invalid values are ignored and fall back to
+the defaults, so a broken file never takes the panel down.
+
+| Setting | Values | Default |
+| --- | --- | --- |
+| `padding` | 0, 1, 2 | 1 |
+| `palette` | `theme` (host theme tokens), `fixed` (Catppuccin Mocha) | `theme` |
+| `showCreated`, `showDone`, `showTags` | on/off | on |
+| `descriptionWidth` | 20–80 characters | 50 |
+| `stripMax` | 10–80 characters per sidebar row | 30 |
+| `stripCollapse` | 1–20 open tasks before the strip folds | 3 |
+| `stripCompleted` | show completed tasks in the strip | off |
+| `stripHeaderColor` | colour the strip header by the highest priority | on |
+| `pageRows` | 0 (fit the terminal) or 4–30 | 0 |
+| `initialFilter` | `all`, `open`, `closed`, `overdue` | `all` |
+| `initialSort` | `status`, `id`, `priority`, `created`, `due`, `done` | `status` |
+| `deleteMode` | `double` (two `ctrl+d`), `dialog` (confirmation) | `double` |
+| `renumberAfterDone` | run `/todo renumber` after completing a task | off |
+| `autoInit` | create `TODO.md` the first time `/todo` opens | off |
+| `saveTo` | `global`, `project` | `global` |
+
+`renumberAfterDone` rewrites every id, so references in older messages stop matching: leave it off unless you do not
+care about ids.
 
 ## Agents
 
@@ -194,6 +233,15 @@ The plugins live in the same repository as the sources; OpenCode resolves `@open
 to be installed locally to try a change.
 
 ## Changelog
+
+### 0.1.11
+
+- Per-column colours in the list, drawn from the host theme or from the fixed Catppuccin palette (`palette` setting).
+- Configurable padding inside the panel, and `/todo settings`: 17 options stored in a global or per-project
+  `todo-md.json`, read by both the dialog and the sidebar strip.
+- Column `created`, `done` and `tag` can be hidden; the description width is configurable.
+- The sidebar strip width, fold threshold, completed tasks and header colour are configurable, as are rows per page,
+  the starting filter and sort, the delete confirmation and automatic `TODO.md` creation.
 
 ### 0.1.10
 

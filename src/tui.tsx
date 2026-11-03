@@ -1,5 +1,5 @@
 /** @jsxImportSource @opentui/solid */
-import { existsSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js"
 import { Plugin, usePlugin } from "@opencode/plugin/tui"
 import {
@@ -10,6 +10,7 @@ import {
   cellsOf,
   changeDue,
   completeTodo,
+  deleteTodo,
   directoryOf,
   filterByPriority,
   filterByTag,
@@ -38,6 +39,7 @@ import {
 import { createRefresher } from "./refresh.ts"
 import { STRINGS } from "./strings.ts"
 import { pageSize } from "./page.ts"
+import { DEFAULT_SETTINGS, loadSettings, mergeSettings, saveSettings, type Palette, type Settings } from "./settings.ts"
 import { isOverdue, type Todo, type TodoPriority } from "./checklist.ts"
 
 // "none" clears the priority: updateTodo passes it through as an explicit undefined.
@@ -165,18 +167,84 @@ function editTodo(context: ReturnType<typeof usePlugin>, sessionID: string, valu
 }
 
 // theme.text is an object (base/muted/feedback.*.base), not a color: passing it straight to fg crashes the renderer.
-type ThemeText = { base?: string; muted?: string; feedback?: { error?: { base?: string }; warning?: { base?: string } } }
-type ThemeColors = { error?: string; warning?: string; textMuted?: string; text?: string }
+type ThemeText = {
+  base?: string
+  muted?: string
+  feedback?: {
+    error?: { base?: string }
+    warning?: { base?: string }
+    success?: { base?: string }
+    info?: { base?: string }
+  }
+}
+type ThemeColors = {
+  error?: string
+  warning?: string
+  success?: string
+  info?: string
+  textMuted?: string
+  text?: string
+}
 const colorsOf = (context: { theme?: unknown }): ThemeColors => {
   const theme = (context.theme ?? {}) as { text?: ThemeText; current?: { text?: ThemeText } }
   const text = theme.text ?? theme.current?.text ?? {}
   return {
     error: text.feedback?.error?.base,
     warning: text.feedback?.warning?.base,
+    success: text.feedback?.success?.base,
+    info: text.feedback?.info?.base,
     textMuted: text.muted,
     text: text.base,
   }
 }
+// Colors from the README screenshot (Catppuccin Mocha), so the panel reads like the docs image.
+const ROW_COLORS = {
+  id: "#89dceb",
+  completed: "#a6e3a1",
+  running: "#f9e2af",
+  high: "#f38ba8",
+  medium: "#f9e2af",
+  low: "#89b4fa",
+  overdue: "#f38ba8",
+  tag: "#cba6f7",
+}
+
+// One color per column: the table stays readable when rows are long.
+// "theme" follows the host palette and falls back to the screenshot hex when a token is missing.
+const cellColor = (
+  theme: ThemeColors,
+  todo: Todo,
+  position: number,
+  palette: Palette = "fixed",
+): string | undefined => {
+  const fixed = palette === "fixed"
+  const high = fixed ? ROW_COLORS.high : (theme.error ?? ROW_COLORS.high)
+  const medium = fixed ? ROW_COLORS.medium : (theme.warning ?? ROW_COLORS.medium)
+  const low = fixed ? ROW_COLORS.low : (theme.info ?? ROW_COLORS.low)
+  const completed = fixed ? ROW_COLORS.completed : (theme.success ?? ROW_COLORS.completed)
+  const priority =
+    todo.priority === "high"
+      ? high
+      : todo.priority === "medium"
+        ? medium
+        : todo.priority === "low"
+          ? low
+          : theme.textMuted
+  if (position === 0) return fixed ? ROW_COLORS.id : theme.text
+  if (position === 1) {
+    if (todo.status === "completed") return completed
+    if (todo.status === "in_progress") return medium
+    if (todo.status === "cancelled") return theme.textMuted
+    return theme.text
+  }
+  if (position === 2) return priority
+  if (position === 3) return theme.textMuted
+  if (position === 4) return isOverdue(todo) ? high : theme.textMuted
+  if (position === 5) return todo.done ? completed : theme.textMuted
+  if (position === 6) return fixed ? ROW_COLORS.tag : theme.text
+  return theme.text
+}
+
 const priorityColor = (theme: ThemeColors, priority?: TodoPriority) =>
   priority === "high" ? theme.error : priority === "medium" ? theme.warning : theme.textMuted
 
@@ -195,15 +263,16 @@ const NEXT_PRIORITY: Array<TodoPriority | undefined> = [undefined, "high", "medi
 function TodoDialog(props: { sessionID: string; close: () => void }) {
   const context = usePlugin()
   const theme = () => colorsOf(context)
+  const settings = loadSettings(directoryOf(context, props.sessionID))
   // Recomputed on every open: a resize between dialogs is picked up.
-  const PAGE = pageSize()
+  const PAGE = settings.pageRows > 0 ? settings.pageRows : pageSize()
   // A size set before show() is ignored on this build, so ask again from inside the dialog.
   onMount(() => context.ui.dialog.set?.({ size: "xlarge", centered: true }))
   const [tick, setTick] = createSignal(0)
-  const [filter, setFilter] = createSignal<TodoFilter>("all")
+  const [filter, setFilter] = createSignal<TodoFilter>(settings.initialFilter)
   const [priority, setPriority] = createSignal<TodoPriority | undefined>()
   const [tag, setTag] = createSignal<string | undefined>()
-  const [sort, setSort] = createSignal<SortKey | undefined>()
+  const [sort, setSort] = createSignal<SortKey | undefined>(settings.initialSort === "status" ? undefined : settings.initialSort)
   const [page, setPage] = createSignal(0)
   const [query, setQuery] = createSignal("")
   const [cursor, setCursor] = createSignal(0)
@@ -265,6 +334,10 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
     const item = selected()
     if (!item) return
     const value = key(item.todo, item.index)
+    if (settings.deleteMode === "dialog") {
+      void deleteTodo(context, props.sessionID, value).then(refresh)
+      return
+    }
     if (pendingDelete() !== value) return setPendingDelete(value)
     removeTodo(context, props.sessionID, value)
     setPendingDelete(undefined)
@@ -289,7 +362,8 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   }
   const toggle = (todo: Todo, index: number) => {
     toggleTodo(context, props.sessionID, key(todo, index))
-    refresh()
+    if (settings.renumberAfterDone && todo.status !== "completed") void renumberTodo(context, props.sessionID).then(refresh)
+    else refresh()
   }
   const add = async () => {
     if (await newTodo(context, props.sessionID)) refresh()
@@ -410,7 +484,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   }))
 
   return (
-    <box flexDirection="column">
+    <box flexDirection="column" paddingLeft={settings.padding} paddingTop={settings.padding}>
       <box flexDirection="row" gap={1}>
         <For each={FILTER_ORDER}>
           {(value) => (
@@ -450,6 +524,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
           setSort(nextSort(sort()))
           setPage(0)
         }}>{`Sort: ${SORT_LABEL[sort() ?? "status"]} ▸`}</text>
+        <text flexShrink={0} fg={theme().textMuted} onMouseUp={() => openSettingsDialog(context, props.sessionID)}>Settings ▸</text>
       </box>
 
       <text> </text>
@@ -472,18 +547,20 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
 
       <box flexDirection="row">
         <text flexShrink={0} fg={theme().textMuted}>{"  "}</text>
-        <For each={headerCells(tagWidth())}>
-          {(cell, position) => (
+        <For each={headerCells(tagWidth(), settings.descriptionWidth)
+          .map((cell, position) => ({ cell, position }))
+          .filter(({ position }) => visibleColumn(settings, position))}>
+          {({ cell, position }) => (
             <text
               flexShrink={0}
               fg={theme().textMuted}
               onMouseUp={() => {
-                const column = HEADER_SORTS[position()]
+                const column = HEADER_SORTS[position]
                 if (!column) return
                 setSort(sort() === column ? undefined : column)
                 setPage(0)
               }}
-            >{`${headerLabel(cell, position())} `}</text>
+            >{`${headerLabel(cell, position)} `}</text>
           )}
         </For>
       </box>
@@ -492,17 +569,19 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         {({ todo, index }, row) => (
           <box flexDirection="row">
             <text flexShrink={0} fg={theme().text}>{row() === cursor() ? "▸ " : "  "}</text>
-            <For each={cellsOf(todo, tagWidth())}>
-              {(cell, position) => (
+            <For each={cellsOf(todo, tagWidth(), settings.descriptionWidth)
+              .map((cell, position) => ({ cell, position }))
+              .filter(({ position }) => visibleColumn(settings, position))}>
+              {({ cell, position }) => (
                 <text
                   flexShrink={0}
-                  fg={isOverdue(todo) ? theme().error : priorityColor(theme(), todo.priority)}
+                  fg={cellColor(theme(), todo, position, settings.palette)}
                   onMouseUp={() => {
-                    if (position() === 0) return void editTodo(context, props.sessionID, key(todo, index))
-                    if (position() === 1 || position() === 7) return toggle(todo, index)
-                    if (position() === 2) return cyclePriority(todo, index)
-                    if (position() === 4) return void changeDue(context, props.sessionID, key(todo, index)).then(refresh)
-                    if (position() === 6) setTag(tagsOf(todo.content)[0])
+                    if (position === 0) return void editTodo(context, props.sessionID, key(todo, index))
+                    if (position === 1 || position === 7) return toggle(todo, index)
+                    if (position === 2) return cyclePriority(todo, index)
+                    if (position === 4) return void changeDue(context, props.sessionID, key(todo, index)).then(refresh)
+                    if (position === 6) setTag(tagsOf(todo.content)[0])
                   }}
                 >{row() === cursor() ? <b>{`${cell} `}</b> : `${cell} `}</text>
               )}
@@ -525,6 +604,113 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
           : "Click: #id edits · ctrl+n new · ctrl+e edits · status toggles · priority cycles · due prompts · / searches · Esc closes"}
       </text>
     </box>
+  )
+}
+
+// Hidden columns are dropped before rendering; the click handler keeps the original index.
+// Takes settings as an argument: this lives outside TodoDialog, where `settings` is not in scope.
+const visibleColumn = (settings: Settings, position: number) =>
+  position === 3 ? settings.showCreated
+    : position === 5 ? settings.showDone
+    : position === 6 ? settings.showTags
+    : true
+
+type SettingRow = { label: string; value: string; next: () => Settings }
+
+const toggle = <K extends keyof Settings>(settings: Settings, key: K, values: ReadonlyArray<Settings[K]>): Settings => {
+  const index = values.indexOf(settings[key])
+  return { ...settings, [key]: values[(index + 1) % values.length] }
+}
+
+const yesNo = (value: boolean) => (value ? "on" : "off")
+
+const settingRows = (settings: Settings): Array<SettingRow> => [
+  { label: "Padding", value: String(settings.padding), next: () => toggle(settings, "padding", [0, 1, 2] as const) },
+  { label: "Palette", value: settings.palette, next: () => toggle(settings, "palette", ["theme", "fixed"] as const) },
+  { label: "Column created", value: yesNo(settings.showCreated), next: () => ({ ...settings, showCreated: !settings.showCreated }) },
+  { label: "Column done", value: yesNo(settings.showDone), next: () => ({ ...settings, showDone: !settings.showDone }) },
+  { label: "Column tag", value: yesNo(settings.showTags), next: () => ({ ...settings, showTags: !settings.showTags }) },
+  { label: "Description width", value: String(settings.descriptionWidth), next: () => toggle(settings, "descriptionWidth", [50, 60, 70, 80]) },
+  { label: "Strip width", value: String(settings.stripMax), next: () => toggle(settings, "stripMax", [20, 30, 40, 50]) },
+  { label: "Strip collapse after", value: String(settings.stripCollapse), next: () => toggle(settings, "stripCollapse", [3, 5, 8]) },
+  { label: "Strip shows completed", value: yesNo(settings.stripCompleted), next: () => ({ ...settings, stripCompleted: !settings.stripCompleted }) },
+  { label: "Strip header colour", value: yesNo(settings.stripHeaderColor), next: () => ({ ...settings, stripHeaderColor: !settings.stripHeaderColor }) },
+  { label: "Rows per page", value: settings.pageRows === 0 ? "auto" : String(settings.pageRows), next: () => toggle(settings, "pageRows", [0, 4, 6, 8, 10, 12]) },
+  { label: "Start filter", value: settings.initialFilter, next: () => toggle(settings, "initialFilter", ["all", "open", "closed", "overdue"] as const) },
+  { label: "Start sort", value: settings.initialSort, next: () => toggle(settings, "initialSort", ["status", "due", "priority", "created", "done", "id"] as const) },
+  { label: "Delete", value: settings.deleteMode === "double" ? "double ctrl+d" : "confirmation dialog", next: () => toggle(settings, "deleteMode", ["double", "dialog"] as const) },
+  { label: "Renumber after done", value: yesNo(settings.renumberAfterDone), next: () => ({ ...settings, renumberAfterDone: !settings.renumberAfterDone }) },
+  { label: "Create TODO.md automatically", value: yesNo(settings.autoInit), next: () => ({ ...settings, autoInit: !settings.autoInit }) },
+  { label: "Save to", value: settings.saveTo === "project" ? ".opencode/todo-md.json" : "~/.config/opencode/todo-md.json", next: () => toggle(settings, "saveTo", ["global", "project"] as const) },
+]
+
+function SettingsDialog(props: { sessionID: string; directory: string; close: () => void }) {
+  const context = usePlugin()
+  const [current, setCurrent] = createSignal(loadSettings(props.directory))
+  const [dirty, setDirty] = createSignal(false)
+  // Nothing is written until Save: a stray click on a row cannot change the panel by accident.
+  const change = (next: Settings) => {
+    setCurrent(next)
+    setDirty(true)
+  }
+  const save = () => {
+    saveSettings(props.directory, current())
+    context.ui.toast.show({ message: "Settings saved", variant: "success" })
+    props.close()
+  }
+  const exportJson = async () => {
+    const path = await context.ui.dialog.prompt({
+      title: "Export settings",
+      placeholder: "path of the JSON file",
+      value: `${props.directory}/todo-md.json`,
+    })
+    if (!path) return
+    writeFileSync(path, `${JSON.stringify(current(), null, 2)}\n`)
+    context.ui.toast.show({ message: `Settings written to ${path}`, variant: "success" })
+    props.close()
+  }
+  const importJson = async () => {
+    const path = await context.ui.dialog.prompt({ title: "Import settings", placeholder: "path of the JSON file" })
+    if (!path) return
+    try {
+      // mergeSettings validates every key, so a partial or hand-edited file cannot break the panel.
+      change(mergeSettings(DEFAULT_SETTINGS, JSON.parse(readFileSync(path, "utf8"))))
+    } catch {
+      context.ui.toast.show({ message: `Cannot read ${path}`, variant: "error" })
+    }
+  }
+  context.keymap.layer(() => ({
+    mode: "global" as const,
+    commands: [{ id: "opencode-todo-md.settings.close", title: "Todo: close settings", bind: "escape", run: () => props.close() }],
+  }))
+  return (
+    <box flexDirection="column" paddingLeft={1} paddingTop={1}>
+      <text><b>{`Settings${dirty() ? " *" : ""}`}</b></text>
+      <text> </text>
+      <For each={settingRows(current())}>
+        {(row) => <text onMouseUp={() => change(row.next())}>{`${row.label}: ${row.value}`}</text>}
+      </For>
+      <text> </text>
+      <box flexDirection="row" gap={2}>
+        <text onMouseUp={save}>Save</text>
+        <text onMouseUp={() => props.close()}>Cancel</text>
+        <text onMouseUp={() => change({ ...DEFAULT_SETTINGS, saveTo: current().saveTo })}>Reset to defaults</text>
+        <text onMouseUp={() => void exportJson()}>Export JSON</text>
+        <text onMouseUp={() => void importJson()}>Import JSON</text>
+      </box>
+      <text> </text>
+      <text>Click a row to cycle it · Save writes the file · Esc cancels · the panel applies them next time it opens</text>
+    </box>
+  )
+}
+
+function openSettingsDialog(context: ReturnType<typeof usePlugin>, sessionID: string) {
+  context.ui.dialog.clear()
+  context.ui.dialog.set({ size: "medium", centered: true })
+  const directory = directoryOf(context, sessionID)
+  void context.ui.dialog.show(
+    () => <SettingsDialog sessionID={sessionID} directory={directory} close={() => context.ui.dialog.clear()} />,
+    () => {},
   )
 }
 
@@ -565,6 +751,7 @@ function openHelpDialog(context: ReturnType<typeof usePlugin>) {
 
 function Strip(props: { sessionID: string }) {
   const context = usePlugin()
+  const settings = loadSettings(directoryOf(context, props.sessionID))
   const [tick, setTick] = createSignal(0)
   const [open, setOpen] = createSignal(true)
 
@@ -586,7 +773,14 @@ function Strip(props: { sessionID: string }) {
     onCleanup(onTodosChanged(() => setTick((value) => value + 1)))
   })
 
-  const openList = () => openTodoDialog(context, props.sessionID)
+  const openList = () => {
+    // The setting is opt-in: creating files behind the user's back is not the default.
+    if (settings.autoInit) {
+      const file = loaded()?.file
+      if (file && !existsSync(file)) initTodo(context, props.sessionID)
+    }
+    openTodoDialog(context, props.sessionID)
+  }
 
   context.keymap.layer(() => ({
     mode: "global" as const,
@@ -613,6 +807,7 @@ function Strip(props: { sessionID: string }) {
             return openList()
           }
           if (command.action === "help") return openHelpDialog(context)
+          if (command.action === "settings") return openSettingsDialog(context, props.sessionID)
           return openList()
         },
       },
@@ -630,7 +825,7 @@ function Strip(props: { sessionID: string }) {
     return !!file && existsSync(file) && todos().length === 0
   }
   const done = createMemo(() => todos().filter((todo) => todo.status === "completed").length)
-  const collapsible = () => todos().length > 3
+  const collapsible = () => todos().length > settings.stripCollapse
 
   // Color carries the priority: red high, yellow medium, muted low or unset. An overdue task is always red.
   const colorOf = (todo: Todo) => (isOverdue(todo) ? colorsOf(context).error : priorityColor(colorsOf(context), todo.priority))
@@ -665,13 +860,13 @@ function Strip(props: { sessionID: string }) {
             </box>
           </Show>
           <box flexGrow={1} minWidth={0} onMouseUp={() => openList()}>
-            <text fg={headerColor()}>
+            <text fg={settings.stripHeaderColor ? headerColor() : colorsOf(context).text}>
               <b>{`Todo ${done()}/${todos().length}`}</b>
             </text>
           </box>
         </box>
         <Show when={!collapsible() || open()}>
-          <For each={todos().filter((todo) => todo.status !== "completed" && todo.status !== "cancelled")}>
+          <For each={todos().filter((todo) => todo.status !== "cancelled" && (settings.stripCompleted || todo.status !== "completed"))}>
             {(todo) => {
               // The row maps back to the file by position, so a click opens the list on that task.
               const index = todos().indexOf(todo)
@@ -684,7 +879,7 @@ function Strip(props: { sessionID: string }) {
                   onMouseUp={() => openList()}
                   fg={colorOf(todo)}
                 >
-                  {prefix + clip(todo.content, STRIP_MAX - prefix.length)}
+                  {prefix + clip(todo.content, settings.stripMax - prefix.length)}
                 </text>
               )
             }}

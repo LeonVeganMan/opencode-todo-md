@@ -47,6 +47,7 @@ export const STRINGS = {
       "/todo init                  create TODO.md",
       "/todo import                convert plain bullets to checkboxes",
       "/todo renumber              rewrite ids 1..N by priority and due date",
+      "/todo settings              open the settings dialog",
       "/todo help                  this help",
     ],
   },
