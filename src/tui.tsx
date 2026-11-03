@@ -661,6 +661,8 @@ const VALUE_WIDTH = 24
 
 function SettingsDialog(props: { sessionID: string; directory: string; close: () => void }) {
   const context = usePlugin()
+  // The size set before show() is ignored on this build, so ask again once the dialog has mounted.
+  onMount(() => context.ui.dialog.set?.({ size: "medium", centered: true }))
   const [current, setCurrent] = createSignal(loadSettings(props.directory))
   const [dirty, setDirty] = createSignal(false)
   // Nothing is written until Save: a stray click on a row cannot change the panel by accident.
