@@ -237,6 +237,14 @@ to be installed locally to try a change.
 
 ## Changelog
 
+### 0.1.13
+
+- The panel has a rounded border, configurable with `borderStyle` (`rounded`, `single`, `none`); it turns red while a
+  delete is armed.
+- The list scrolls instead of paging: the cursor moves over every task and the view follows it.
+- Settings values are clipped to their column, `Save to` shows `global` or `project`, and the dialog re-centres itself.
+- The editor, the settings and the help dialogs use the same rounded border.
+
 ### 0.1.12
 
 - Settings values share a right edge, and the dialog is drawn like the README screenshot.
