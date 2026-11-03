@@ -683,23 +683,40 @@ function SettingsDialog(props: { sessionID: string; directory: string; close: ()
     mode: "global" as const,
     commands: [{ id: "opencode-todo-md.settings.close", title: "Todo: close settings", bind: "escape", run: () => props.close() }],
   }))
+  // Same colour language as the README screenshot: on green, off muted, numbers warning, switches info.
+  const theme = () => colorsOf(context)
+  const valueFg = (value: string) =>
+    value === "on"
+      ? (theme().success ?? ROW_COLORS.completed)
+      : value === "off"
+        ? theme().textMuted
+        : /^\d+$/.test(value)
+          ? (theme().warning ?? ROW_COLORS.medium)
+          : value === "theme" || value === "fixed"
+            ? (theme().info ?? ROW_COLORS.id)
+            : theme().text
   return (
     <box flexDirection="column" paddingLeft={1} paddingTop={1}>
       <text><b>{`Settings${dirty() ? " *" : ""}`}</b></text>
       <text> </text>
       <For each={settingRows(current())}>
-        {(row) => <text onMouseUp={() => change(row.next())}>{`${row.label}: ${row.value}`}</text>}
+        {(row) => (
+          <box flexDirection="row" onMouseUp={() => change(row.next())}>
+            <text flexShrink={0} fg={theme().textMuted}>{`${row.label}: `}</text>
+            <text flexShrink={0} fg={valueFg(row.value)}>{row.value}</text>
+          </box>
+        )}
       </For>
       <text> </text>
       <box flexDirection="row" gap={2}>
-        <text onMouseUp={save}>Save</text>
-        <text onMouseUp={() => props.close()}>Cancel</text>
-        <text onMouseUp={() => change({ ...DEFAULT_SETTINGS, saveTo: current().saveTo })}>Reset to defaults</text>
-        <text onMouseUp={() => void exportJson()}>Export JSON</text>
-        <text onMouseUp={() => void importJson()}>Import JSON</text>
+        <text flexShrink={0} fg={theme().success ?? ROW_COLORS.completed} onMouseUp={save}><b>Save</b></text>
+        <text flexShrink={0} fg={theme().textMuted} onMouseUp={() => props.close()}>Cancel</text>
+        <text flexShrink={0} fg={theme().success ?? ROW_COLORS.completed} onMouseUp={() => change({ ...DEFAULT_SETTINGS, saveTo: current().saveTo })}>Reset to defaults</text>
+        <text flexShrink={0} fg={theme().info ?? ROW_COLORS.id} onMouseUp={() => void exportJson()}>Export JSON</text>
+        <text flexShrink={0} fg={theme().info ?? ROW_COLORS.id} onMouseUp={() => void importJson()}>Import JSON</text>
       </box>
       <text> </text>
-      <text>Click a row to cycle it · Save writes the file · Esc cancels · the panel applies them next time it opens</text>
+      <text fg={theme().textMuted}>Click a row to cycle it · Save writes the file · Esc cancels · the panel applies them next time it opens</text>
     </box>
   )
 }
