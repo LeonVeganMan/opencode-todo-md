@@ -146,6 +146,8 @@ panel. Nothing is written until you press **Save**; **Cancel** discards the draf
 every value, **Export JSON** and **Import JSON** move the whole set through a file. Settings are read when a dialog or
 the sidebar strip is created, so a change applies the next time it opens; `Esc` cancels.
 
+![The settings dialog](screen/settings.png)
+
 They live in two JSON files, both optional:
 
 | File | Scope |
