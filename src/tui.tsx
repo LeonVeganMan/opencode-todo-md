@@ -604,6 +604,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         <text onMouseUp={() => move(ROWS)}>▼</text>
         <text fg={theme().textMuted}>{STRINGS.dialog.count(rows().length)}</text>
       </box>
+      <text> </text>
       <Show when={settings.showHints}>
         {/* Clicking the bar opens the full list of keys: one line is all that fits here. */}
         <text fg={theme().textMuted} onMouseUp={() => openHelpDialog(context)}>
@@ -652,7 +653,7 @@ const settingRows = (settings: Settings): Array<SettingRow> => [
   { label: "Renumber after done", value: yesNo(settings.renumberAfterDone), next: () => ({ ...settings, renumberAfterDone: !settings.renumberAfterDone }) },
   { label: "Create TODO.md automatically", value: yesNo(settings.autoInit), next: () => ({ ...settings, autoInit: !settings.autoInit }) },
   { label: "Show shortcut bar", value: yesNo(settings.showHints), next: () => ({ ...settings, showHints: !settings.showHints }) },
-  { label: "Save to", value: settings.saveTo === "project" ? ".opencode/todo-md.json" : "~/.config/opencode/todo-md.json", next: () => toggle(settings, "saveTo", ["global", "project"] as const) },
+  { label: "Save to", value: settings.saveTo, next: () => toggle(settings, "saveTo", ["global", "project"] as const) },
 ]
 
 const LABEL_WIDTH = 30
@@ -718,10 +719,10 @@ function SettingsDialog(props: { sessionID: string; directory: string; close: ()
           <box flexDirection="row" onMouseUp={() => change(row.next())}>
             {/* Values share one right edge: a monospace pad keeps the column straight. */}
             <text flexShrink={0} fg={theme().textMuted}>{row.label.padEnd(LABEL_WIDTH)}</text>
-            <text flexShrink={0} fg={valueFg(row.value)}>{row.value.padStart(VALUE_WIDTH)}</text>
+            <text flexShrink={0} fg={valueFg(row.value)}>{clip(row.value, VALUE_WIDTH).padStart(VALUE_WIDTH)}</text>
             <Show when={row.label === "Palette"}>
               {/* A swatch shows the accent the chosen palette actually uses. */}
-              <text fg={row.value === "fixed" ? ROW_COLORS.id : (theme().info ?? ROW_COLORS.id)}>{" ███"}</text>
+              <text fg={row.value === "fixed" ? ROW_COLORS.id : (theme().info ?? ROW_COLORS.id)}>{" █"}</text>
             </Show>
           </box>
         )}
