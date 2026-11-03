@@ -485,7 +485,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   }))
 
   return (
-    <box flexDirection="column" paddingLeft={settings.padding} paddingTop={settings.padding}>
+    <box flexDirection="column" border borderStyle="rounded" borderColor={focusSearch() ? (theme().info ?? ROW_COLORS.id) : theme().textMuted} paddingLeft={settings.padding} paddingTop={settings.padding}>
       <box flexDirection="row" gap={1}>
         <For each={FILTER_ORDER}>
           {(value) => (
@@ -713,6 +713,10 @@ function SettingsDialog(props: { sessionID: string; directory: string; close: ()
             {/* Values share one right edge: a monospace pad keeps the column straight. */}
             <text flexShrink={0} fg={theme().textMuted}>{row.label.padEnd(LABEL_WIDTH)}</text>
             <text flexShrink={0} fg={valueFg(row.value)}>{row.value.padStart(VALUE_WIDTH)}</text>
+            <Show when={row.label === "Palette"}>
+              {/* A swatch shows the accent the chosen palette actually uses. */}
+              <text fg={row.value === "fixed" ? ROW_COLORS.id : (theme().info ?? ROW_COLORS.id)}>{" ███"}</text>
+            </Show>
           </box>
         )}
       </For>
