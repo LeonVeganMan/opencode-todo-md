@@ -946,7 +946,8 @@ function Strip(props: { sessionID: string }) {
               const index = todos().indexOf(todo)
               const id = todo.id ? `#${todo.id} ` : ""
               // Compact prefix: the sidebar is narrow, and a long prefix pushes the text into a second line.
-              const prefix = `${id}${todo.status === "in_progress" ? "• " : ""}${todo.priority === "high" ? "! " : ""}${isOverdue(todo) ? "[!] " : ""}`
+              // Priority rides on the colour alone; `!` and `[!]` were both red and read as the same alarm.
+              const prefix = `${id}${todo.status === "in_progress" ? "• " : ""}${isOverdue(todo) ? "[!] " : ""}`
               return (
                 <text
                   // The built-in sidebar rows use mouseup; mousedown is not delivered to text renderables here.
