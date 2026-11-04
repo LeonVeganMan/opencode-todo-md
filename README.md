@@ -122,6 +122,8 @@ Search and press Enter (open, high, #12, @tag)
 When the editor closes, the list reopens, so editing several tasks in a row is one flow. The dialog state (filter,
 tag, sort, scroll position) restarts when you come back from the editor.
 
+![The todo editor](screen/editor.png)
+
 The editor itself (the `#id` cell) has the task text in a focused seven-line box that wraps long text instead of
 scrolling it sideways (a pasted newline becomes a space, so a task stays one line), a row of priority chips and a row of
 due chips (`none`, `today`, `+7d`, `+30d`). `✎ due` swaps focus to a second input where any `YYYY-MM-DD` can be typed;

@@ -85,9 +85,9 @@ const isoDay = (offset: number) => {
 /** Due dates are picked, not typed: the dialog already has a text input and focus would fight over it. */
 const DUE_CHOICES = [
   { label: "none", value: undefined },
-  { label: "oggi", value: isoDay(0) },
-  { label: "+7g", value: isoDay(7) },
-  { label: "+30g", value: isoDay(30) },
+  { label: "today", value: isoDay(0) },
+  { label: "+7d", value: isoDay(7) },
+  { label: "+30d", value: isoDay(30) },
 ]
 
 /** One screen for text, priority and due date: the host has no composite dialog, so it is a custom JSX one. */
@@ -175,7 +175,7 @@ function EditDialog(props: {
           )}
         </For>
       </box>
-      <text>Tab priority · ✎ due types a date · Enter saves · Esc cancels</text>
+      <text>Tab priority · ✎ due date · Enter saves · Esc cancels</text>
     </box>
   )
 }
