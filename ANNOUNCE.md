@@ -57,5 +57,13 @@ npm: https://www.npmjs.com/package/opencode-todo-md
 - The list scrolls instead of paging: the cursor walks every task and the view follows it.
 - Settings values are clipped to their column, `Save to` shows `global` or `project`, and the dialog centres itself at mount.
 
-Status: v0.1.13, 61 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
+## What's new in 0.1.14
+
+- `todo_write` in `mode: "replace"` now defaults a missing `status` to `pending`, the same as merge.
+- The sidebar shows `[·]` for tasks due today or within two days, `[!]` only for overdue, and no longer prints `!` for
+  high priority: the colour already says it.
+- The help dialog carries the symbol legend.
+- Render errors in the sidebar and dialogs go to `~/.local/state/opencode/todo-md-errors.log` instead of vanishing.
+
+Status: v0.1.14, 63 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
 run `/reload`, after installing or updating.

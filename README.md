@@ -139,6 +139,9 @@ turns red when something is overdue and shows the highest priority among the ope
 opens `/todo`, clicking the arrow collapses or expands the list (it starts collapsed above 3 open tasks). A file with
 no checkboxes shows `Todo · no tasks` instead of nothing. Long task texts are clipped to one line instead of wrapping.
 
+Markers: `•` in progress, `[·]` due today or within two days, `[!]` overdue. The row colour is the priority (red for
+high, yellow for medium, muted for low); an overdue task is red regardless of priority.
+
 ## Settings
 
 `/todo settings` opens a dialog where every row cycles its value on click, or from the `Settings ▸` row in the todo
@@ -236,6 +239,14 @@ The plugins live in the same repository as the sources; OpenCode resolves `@open
 to be installed locally to try a change.
 
 ## Changelog
+
+### 0.1.14
+
+- `todo_write` with `mode: "replace"` accepts tasks without `status` and defaults them to `pending`, like merge.
+- The sidebar marks tasks due today or within two days with `[·]`; `[!]` stays for overdue, and the high-priority `!`
+  is gone because the colour already carries it.
+- The help dialog lists the sidebar symbols.
+- Render errors in the sidebar and the dialogs are caught and appended to `~/.local/state/opencode/todo-md-errors.log`.
 
 ### 0.1.13
 
