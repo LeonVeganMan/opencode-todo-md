@@ -43,7 +43,7 @@ import { SHORTCUTS } from "./shortcuts.ts"
 import { STRINGS } from "./strings.ts"
 import { pageSize } from "./page.ts"
 import { DEFAULT_SETTINGS, loadSettings, mergeSettings, saveSettings, type Palette, type Settings } from "./settings.ts"
-import { isOverdue, type Todo, type TodoPriority } from "./checklist.ts"
+import { isDueSoon, isOverdue, type Todo, type TodoPriority } from "./checklist.ts"
 
 // "none" clears the priority: updateTodo passes it through as an explicit undefined.
 const EDIT_PRIORITIES: Array<TodoPriority | undefined> = [undefined, "high", "medium", "low"]
@@ -811,6 +811,10 @@ function HelpDialog(props: { close: () => void }) {
         {(row) => <text>{clip(`${row.bind.padEnd(9)}${row.title}`, 56)}</text>}
       </For>
       <text> </text>
+      <For each={STRINGS.dialog.helpLegend}>
+        {(line) => <text fg={colorsOf(context).textMuted}>{line}</text>}
+      </For>
+      <text> </text>
       <text fg={colorsOf(context).textMuted}>Esc closes</text>
     </box>
   )
@@ -947,7 +951,7 @@ function Strip(props: { sessionID: string }) {
               const id = todo.id ? `#${todo.id} ` : ""
               // Compact prefix: the sidebar is narrow, and a long prefix pushes the text into a second line.
               // Priority rides on the colour alone; `!` and `[!]` were both red and read as the same alarm.
-              const prefix = `${id}${todo.status === "in_progress" ? "• " : ""}${isOverdue(todo) ? "[!] " : ""}`
+              const prefix = `${id}${todo.status === "in_progress" ? "• " : ""}${isOverdue(todo) ? "[!] " : isDueSoon(todo) ? "[·] " : ""}`
               return (
                 <text
                   // The built-in sidebar rows use mouseup; mousedown is not delivered to text renderables here.

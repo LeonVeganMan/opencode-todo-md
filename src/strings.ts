@@ -40,6 +40,7 @@ export const STRINGS = {
     editHint: "Tab priority · ✎ due types a date · Enter saves · Esc cancels",
     dueLabel: "✎ due",
     helpTitle: "Todo commands",
+    helpLegend: ["• in progress · [·] due within 2 days", "[!] overdue · colour = priority"],
     help: [
       "/todo                       open the list",
       "/todo add <text> [high|medium|low] [due=YYYY-MM-DD]",

@@ -152,6 +152,15 @@ export function isOverdue(todo: Todo): boolean {
   return todo.due < today()
 }
 
+/** True when the task is open, not late yet and due within the next `days` days (today included). */
+export function isDueSoon(todo: Todo, days = 2): boolean {
+  if (!todo.due || todo.status === "completed" || todo.status === "cancelled") return false
+  if (isOverdue(todo)) return false
+  const limit = new Date()
+  limit.setUTCDate(limit.getUTCDate() + days)
+  return todo.due <= limit.toISOString().slice(0, 10)
+}
+
 /**
  * Rewrites the checkboxes that already exist, in place, and only adds or drops
  * lines at the end of the parsed sequence. Headings, notes and any non-checkbox

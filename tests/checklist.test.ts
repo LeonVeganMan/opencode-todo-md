@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { applyChecklist, importBullets, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, renumberChecklist, today } from "../src/checklist.ts"
+import { applyChecklist, importBullets, isDueSoon, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, renumberChecklist, today } from "../src/checklist.ts"
 import { MARKERS, STRINGS } from "../src/strings.ts"
 import { SHORTCUTS } from "../src/shortcuts.ts"
 import { pageSize } from "../src/page.ts"
@@ -221,6 +221,22 @@ describe("ids, due dates and patches", () => {
     expect(isOverdue(todo)).toBe(true)
     expect(isOverdue({ ...todo, status: "completed" })).toBe(false)
     expect(isOverdue({ ...todo, due: undefined })).toBe(false)
+  })
+
+  test("due soon covers today up to two days ahead, never late or closed tasks", () => {
+    const plus = (days: number) => {
+      const date = new Date()
+      date.setUTCDate(date.getUTCDate() + days)
+      return date.toISOString().slice(0, 10)
+    }
+    const open = { content: "uno", status: "pending" as const }
+    expect(isDueSoon({ ...open, due: today() })).toBe(true)
+    expect(isDueSoon({ ...open, due: plus(2) })).toBe(true)
+    expect(isDueSoon({ ...open, due: plus(3) })).toBe(false)
+    expect(isDueSoon({ ...open, due: "2020-01-01" })).toBe(false)
+    expect(isDueSoon({ ...open, status: "completed", due: today() })).toBe(false)
+    expect(isDueSoon({ ...open, status: "cancelled", due: today() })).toBe(false)
+    expect(isDueSoon(open)).toBe(false)
   })
 
   test("patchTodos changes only the given fields", () => {
