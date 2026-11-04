@@ -97,8 +97,7 @@ export function normalize(input: unknown): Write {
       mode: "replace",
       todos: list.map((entry, index) => {
         if (entry.content === undefined) throw new Error(`todo #${index + 1} requires a non-empty \`content\` string`)
-        if (entry.status === undefined) throw new Error(`todo #${index + 1} requires a \`status\``)
-        const todo: Todo = { content: entry.content, status: entry.status }
+        const todo: Todo = { content: entry.content, status: entry.status ?? "pending" }
         if (entry.id !== undefined) todo.id = entry.id
         if (entry.priority !== undefined) todo.priority = entry.priority
         if (entry.due !== undefined) todo.due = entry.due

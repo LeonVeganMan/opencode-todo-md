@@ -1,6 +1,7 @@
 /** @jsxImportSource @opentui/solid */
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js"
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, ErrorBoundary, type JSX } from "solid-js"
+import { dirname, join } from "node:path"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { Plugin, usePlugin } from "@opencode/plugin/tui"
 import {
@@ -46,6 +47,34 @@ import { isOverdue, type Todo, type TodoPriority } from "./checklist.ts"
 
 // "none" clears the priority: updateTodo passes it through as an explicit undefined.
 const EDIT_PRIORITIES: Array<TodoPriority | undefined> = [undefined, "high", "medium", "low"]
+
+/** The host does not persist render crashes: keep them in a log the user can send us. */
+function logTuiError(where: string, error: unknown) {
+  try {
+    const state = process.env.XDG_STATE_HOME ?? join(process.env.HOME ?? ".", ".local", "state")
+    const file = join(state, "opencode", "todo-md-errors.log")
+    mkdirSync(dirname(file), { recursive: true })
+    if (existsSync(file) && statSync(file).size > 256 * 1024) writeFileSync(file, "")
+    const detail = error instanceof Error ? (error.stack ?? error.message) : String(error)
+    appendFileSync(file, `[${new Date().toISOString()}] ${where}: ${detail}\n`)
+  } catch {
+    // Logging must never take the UI down with it.
+  }
+}
+
+/** Solid only catches render and effect errors; without this an uncaught one blanks the slot. */
+function guarded(where: string, render: () => JSX.Element) {
+  return (
+    <ErrorBoundary
+      fallback={(error) => {
+        logTuiError(where, error)
+        return <text> </text>
+      }}
+    >
+      {render()}
+    </ErrorBoundary>
+  )
+}
 
 const isoDay = (offset: number) => {
   const date = new Date()
@@ -149,16 +178,17 @@ function editTodo(context: ReturnType<typeof usePlugin>, sessionID: string, valu
     context.ui.dialog.clear()
     context.ui.dialog.set({ size: "medium", centered: true })
     context.ui.dialog.show(
-      () => (
-        <EditDialog
-          todo={todo}
-          onSave={(content, priority, due) => {
-            updateTodo(context, sessionID, value, { content, priority, due })
-            context.ui.dialog.clear()
-          }}
-          onCancel={() => context.ui.dialog.clear()}
-        />
-      ),
+      () =>
+        guarded("edit", () => (
+          <EditDialog
+            todo={todo}
+            onSave={(content, priority, due) => {
+              updateTodo(context, sessionID, value, { content, priority, due })
+              context.ui.dialog.clear()
+            }}
+            onCancel={() => context.ui.dialog.clear()}
+          />
+        )),
       () => {
         resolve()
         // Esc or save closes only the editor: reopening on the next tick lets the host finish closing first.
@@ -748,7 +778,7 @@ function openSettingsDialog(context: ReturnType<typeof usePlugin>, sessionID: st
   context.ui.dialog.set({ size: "medium", centered: true })
   const directory = directoryOf(context, sessionID)
   void context.ui.dialog.show(
-    () => <SettingsDialog sessionID={sessionID} directory={directory} close={() => context.ui.dialog.clear()} />,
+    () => guarded("settings", () => <SettingsDialog sessionID={sessionID} directory={directory} close={() => context.ui.dialog.clear()} />),
     () => {},
   )
 }
@@ -759,7 +789,7 @@ function openTodoDialog(context: ReturnType<typeof usePlugin>, sessionID: string
   // clicks land on the wrong cell (or nowhere) and the search box cannot be focused.
   context.ui.dialog.set({ size: "xlarge", centered: true })
   void context.ui.dialog.show(
-    () => <TodoDialog sessionID={sessionID} close={() => context.ui.dialog.clear()} />,
+    () => guarded("todo", () => <TodoDialog sessionID={sessionID} close={() => context.ui.dialog.clear()} />),
     () => {},
   )
 }
@@ -790,7 +820,7 @@ function HelpDialog(props: { close: () => void }) {
 function openHelpDialog(context: ReturnType<typeof usePlugin>) {
   context.ui.dialog.clear()
   context.ui.dialog.set({ size: "medium", centered: true })
-  void context.ui.dialog.show(() => <HelpDialog close={() => context.ui.dialog.clear()} />, () => {})
+  void context.ui.dialog.show(() => guarded("help", () => <HelpDialog close={() => context.ui.dialog.clear()} />), () => {})
 }
 
 function Strip(props: { sessionID: string }) {
@@ -939,7 +969,7 @@ export default Plugin.define({
   setup(context) {
     return context.ui.slot({
       append: "sidebar.content",
-      render: (props) => <Strip sessionID={props.sessionID} />,
+      render: (props) => guarded("sidebar", () => <Strip sessionID={props.sessionID} />),
     })
   },
 })

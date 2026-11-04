@@ -41,6 +41,14 @@ describe("todo_write modes", () => {
     expect(nextTodos(current, write).map((todo) => todo.content)).toEqual(["solo"])
   })
 
+  // A model sent replace without status and the whole write was rejected; merge already defaulted.
+  test("replace without a status defaults to pending", () => {
+    const write = normalize({ mode: "replace", todos: [{ content: "solo" }] })
+    expect(write.mode).toBe("replace")
+    if (write.mode !== "replace") return
+    expect(write.todos[0]).toEqual({ content: "solo", status: "pending" })
+  })
+
   test("an unknown mode is rejected instead of guessed", () => {
     expect(() => normalize({ mode: "delete", todos: [] })).toThrow('`mode` accepts only "replace"')
   })

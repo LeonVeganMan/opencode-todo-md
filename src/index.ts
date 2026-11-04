@@ -46,7 +46,7 @@ const INPUT_SCHEMA = {
         properties: {
           id: { type: "integer", minimum: 1, description: "Stable id printed by todo_read. Required to patch an existing task." },
           content: { type: "string", description: "Imperative description of the task. Omit when patching by id." },
-          status: { type: "string", enum: [...TODO_STATUSES], description: "Current state of the task." },
+          status: { type: "string", enum: [...TODO_STATUSES], description: "Current state of the task. Optional: a new task defaults to pending." },
           priority: { type: "string", enum: [...TODO_PRIORITIES], description: "Optional priority of the task." },
           due: { type: "string", description: "Optional due date, ISO YYYY-MM-DD." },
         },
