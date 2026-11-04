@@ -108,11 +108,12 @@ Search and press Enter (open, high, #12, @tag)
 - Search applies on Enter and understands `open`, `done`, `cancelled`, `high`, `medium`, `low`, `#12`, `@tag` and free
   text.
 - One line per task, description last and clipped with `…` when the panel is narrow. Click `#id` to edit, `st` or the
-  description to toggle completed, `prio` to cycle, `due` to ask for a date, `tag` to filter by that task's first tag.
+  description to cycle pending → in progress → completed, `prio` to cycle, `due` to ask for a date, `tag` to filter by
+  that task's first tag.
 - Click the `#id`, `prio`, `created`, `due` or `done` header to sort by that column; the sorted column is marked with
   `▲`, a second click restores the default order.
 - The list has a cursor (`▸`): `↑`/`↓` move it and the list scrolls just enough to keep it visible, so the cursor
-  never stops at the edge. `space` toggles the selected task, `ctrl+e` edits it, `ctrl+n` adds a task, `PgUp`/`PgDn` scroll one
+  never stops at the edge. `space` cycles the selected task's state, `ctrl+e` edits it, `ctrl+n` adds a task, `PgUp`/`PgDn` scroll one
   screen, `Home`/`End` jump to the first or last task.
 - `ctrl+d` arms the selected task and shows `ctrl+d again to delete`: the second press removes the line, no dialog.
 - `/` gives the keyboard to the search box; `Enter` applies the query and gives the keyboard back to the list. `Esc`

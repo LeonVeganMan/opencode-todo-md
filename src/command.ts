@@ -185,18 +185,19 @@ export function tagWidthOf(todos: Array<Todo>): number {
 
 export type SortKey = "id" | "due" | "priority" | "created" | "done"
 
-export type TodoFilter = "all" | "open" | "closed" | "due"
+export type TodoFilter = "all" | "open" | "doing" | "closed" | "due"
 
-export const FILTER_ORDER: Array<TodoFilter> = ["all", "open", "closed", "due"]
+export const FILTER_ORDER: Array<TodoFilter> = ["all", "open", "doing", "closed", "due"]
 export const FILTER_LABEL: Record<TodoFilter, string> = { ...STRINGS.filters }
 export function nextFilter(current: TodoFilter = "all"): TodoFilter {
   return FILTER_ORDER[(FILTER_ORDER.indexOf(current) + 1) % FILTER_ORDER.length]
 }
 
-/** Keeps open (pending/in_progress), closed (completed/cancelled) or overdue tasks; `all` is a no-op. */
+/** Keeps open (pending/in_progress), in progress, closed (completed/cancelled) or overdue tasks; `all` is a no-op. */
 export function todosFor(todos: Array<Todo>, filter: TodoFilter = "all"): Array<Todo> {
   if (filter === "all") return todos
   if (filter === "due") return todos.filter(isOverdue)
+  if (filter === "doing") return todos.filter((todo) => todo.status === "in_progress")
   const open = filter === "open"
   return todos.filter((todo) =>
     open ? todo.status === "pending" || todo.status === "in_progress" : todo.status === "completed" || todo.status === "cancelled",
@@ -519,15 +520,15 @@ export function priorityRows(current?: TodoPriority): Array<SelectOption> {
   }))
 }
 
-/** Flips pending/completed for one task, resolved by `#id` or `t<index>`. The custom list is not a select, so it stays open. */
-export function toggleTodo(context: DialogContext, sessionID: string, value: string): boolean {
+/** Cycles pending -> in progress -> completed -> pending for one task, resolved by `#id` or `t<index>`. */
+export function cycleTodo(context: DialogContext, sessionID: string, value: string): boolean {
   const found = loadSelected(context, sessionID, value)
   if (!found) return false
-  const todos = found.loaded.todos.map((todo, position) =>
-    position === found.index
-      ? { ...todo, status: todo.status === "completed" ? ("pending" as const) : ("completed" as const) }
-      : todo,
-  )
+  const todos = found.loaded.todos.map((todo, position) => {
+    if (position !== found.index) return todo
+    const status = todo.status === "pending" ? "in_progress" : todo.status === "in_progress" ? "completed" : "pending"
+    return { ...todo, status }
+  })
   save(found.loaded, todos)
   context.ui.toast.show({ message: STRINGS.toasts.updated, variant: "success" })
   return true

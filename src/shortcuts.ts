@@ -13,7 +13,7 @@ export const SHORTCUTS: Array<Shortcut> = [
   { bind: "pagedown", title: "Next page" },
   { bind: "home", title: "First page" },
   { bind: "end", title: "Last page" },
-  { bind: "space", title: "Toggle selected task" },
+  { bind: "space", title: "Cycle selected state" },
   { bind: "ctrl+e", title: "Edit selected task" },
   { bind: "ctrl+n", title: "New task" },
   { bind: "ctrl+d", title: "Delete, pressed twice" },

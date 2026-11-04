@@ -7,7 +7,7 @@ import { MARKERS, STRINGS } from "../src/strings.ts"
 import { SHORTCUTS } from "../src/shortcuts.ts"
 import { pageSize } from "../src/page.ts"
 import { DEFAULT_SETTINGS, loadSettings, mergeSettings, projectSettingsFile, saveSettings } from "../src/settings.ts"
-import { TABLE_HEADER, addTodo, changeDue, completeTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, removeTodo, renumberOrder, sortBy, summaryTitle, tableHeader, tableRow, descriptionOf, tagWidthOf, tagsOf, toggleTodo, todosFor, updateTodo } from "../src/command.ts"
+import { TABLE_HEADER, addTodo, changeDue, completeTodo, cycleTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, removeTodo, renumberOrder, sortBy, summaryTitle, tableHeader, tableRow, descriptionOf, tagWidthOf, tagsOf, todosFor, updateTodo } from "../src/command.ts"
 
 const NOTE = "# TODO\n\nNota da preservare.\n\n- [ ] uno\n- [ ] due\n"
 
@@ -363,16 +363,18 @@ describe("filter cycle", () => {
     { content: "annullato", status: "cancelled", id: 4 },
   ]
 
-  test("todosFor keeps open, closed or everything", () => {
+  test("todosFor keeps open, in progress, closed or everything", () => {
     expect(todosFor(todos, "open").map(({ id }) => id)).toEqual([1, 2])
+    expect(todosFor(todos, "doing").map(({ id }) => id)).toEqual([2])
     expect(todosFor(todos, "closed").map(({ id }) => id)).toEqual([3, 4])
     expect(todosFor(todos, "all")).toHaveLength(4)
     expect(todosFor(todos)).toHaveLength(4)
   })
 
-  test("nextFilter cycles all, open, closed, overdue", () => {
+  test("nextFilter cycles all, open, in progress, closed, overdue", () => {
     expect(nextFilter()).toBe("open")
-    expect(nextFilter("open")).toBe("closed")
+    expect(nextFilter("open")).toBe("doing")
+    expect(nextFilter("doing")).toBe("closed")
     expect(nextFilter("closed")).toBe("due")
     expect(nextFilter("due")).toBe("all")
   })
@@ -406,9 +408,9 @@ describe("filters, tags and dynamic columns", () => {
 
   test("each state filter is its own clickable row", () => {
     const rows = filterRows("open")
-    expect(rows.map(({ title }) => title)).toEqual(["○ all", "● open", "○ closed", "○ overdue"])
-    expect(rows.map(({ value }) => value)).toEqual(["filter:all", "filter:open", "filter:closed", "filter:due"])
-    expect(filterRows().map(({ title }) => title)).toEqual(["● all", "○ open", "○ closed", "○ overdue"])
+    expect(rows.map(({ title }) => title)).toEqual(["○ all", "● open", "○ in progress", "○ closed", "○ overdue"])
+    expect(rows.map(({ value }) => value)).toEqual(["filter:all", "filter:open", "filter:doing", "filter:closed", "filter:due"])
+    expect(filterRows().map(({ title }) => title)).toEqual(["● all", "○ open", "○ in progress", "○ closed", "○ overdue"])
   })
 
   test("priority filters are rows and filter the list", () => {
@@ -432,19 +434,27 @@ describe("filters, tags and dynamic columns", () => {
 })
 
 describe("custom dialog helpers", () => {
-  test("toggleTodo flips only the task addressed by id", () => {
+  test("cycleTodo walks pending, in progress, completed and back", () => {
     const dir = mkdtempSync(join(tmpdir(), "todo-md-"))
-    writeFileSync(join(dir, "TODO.md"), "# TODO\n\n- [ ] uno <!-- id=1 -->\n- [ ] due <!-- id=2 -->\n")
+    const file = join(dir, "TODO.md")
+    writeFileSync(file, "# TODO\n\n- [ ] uno <!-- id=1 -->\n- [ ] due <!-- id=2 -->\n- [-] tre <!-- id=3 -->\n")
     const context = {
       data: { session: { get: () => ({ directory: dir }) } },
       ui: { dialog: {}, toast: { show: () => {} } },
     }
 
-    expect(toggleTodo(context as never, "ses_test", "#2")).toBe(true)
-    const text = readFileSync(join(dir, "TODO.md"), "utf8")
-    expect(text).toContain("- [x] due <!-- id=2")
-    expect(text).toContain("- [ ] uno <!-- id=1")
-    expect(toggleTodo(context as never, "ses_test", "#9")).toBe(false)
+    expect(cycleTodo(context as never, "ses_test", "#2")).toBe(true)
+    expect(readFileSync(file, "utf8")).toContain("- [•] due <!-- id=2")
+    expect(cycleTodo(context as never, "ses_test", "#2")).toBe(true)
+    expect(readFileSync(file, "utf8")).toContain("- [x] due <!-- id=2")
+    expect(cycleTodo(context as never, "ses_test", "#2")).toBe(true)
+    expect(readFileSync(file, "utf8")).toContain("- [ ] due <!-- id=2")
+    expect(readFileSync(file, "utf8")).toContain("- [ ] uno <!-- id=1")
+
+    // A cancelled task reopens as pending: the cycle only walks the working states.
+    expect(cycleTodo(context as never, "ses_test", "#3")).toBe(true)
+    expect(readFileSync(file, "utf8")).toContain("- [ ] tre <!-- id=3")
+    expect(cycleTodo(context as never, "ses_test", "#9")).toBe(false)
     rmSync(dir, { recursive: true, force: true })
   })
 

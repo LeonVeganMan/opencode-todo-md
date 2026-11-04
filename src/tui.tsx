@@ -32,7 +32,7 @@ import {
   sortTodos,
   tagWidthOf,
   tagsOf,
-  toggleTodo,
+  cycleTodo,
   todosFor,
   updateTodo,
   type SortKey,
@@ -391,7 +391,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
     refresh()
   }
   const toggle = (todo: Todo, index: number) => {
-    toggleTodo(context, props.sessionID, key(todo, index))
+    cycleTodo(context, props.sessionID, key(todo, index))
     if (settings.renumberAfterDone && todo.status !== "completed") void renumberTodo(context, props.sessionID).then(refresh)
     else refresh()
   }
