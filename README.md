@@ -244,6 +244,15 @@ to be installed locally to try a change.
 
 ## Changelog
 
+### 0.1.15
+
+- Clicking the state cell, or the description, cycles a task pending → in progress → completed; `space` cycles the
+  selected task.
+- The state tabs gain an `in progress` filter.
+- The editor opens the description in a seven-line box that wraps long text instead of scrolling it sideways; a
+  pasted newline becomes a space, so a task stays one line.
+- Due chips use English labels (`today`, `+7d`, `+30d`), and the editor hint fits the dialog width.
+
 ### 0.1.14
 
 - `todo_write` with `mode: "replace"` accepts tasks without `status` and defaults them to `pending`, like merge.
