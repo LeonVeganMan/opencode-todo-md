@@ -2,7 +2,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, ErrorBoundary, type JSX } from "solid-js"
 import { dirname, join } from "node:path"
-import type { ScrollBoxRenderable } from "@opentui/core"
+import type { ScrollBoxRenderable, TextareaRenderable } from "@opentui/core"
 import { Plugin, usePlugin } from "@opencode/plugin/tui"
 import {
   FILTER_LABEL,
@@ -101,12 +101,14 @@ function EditDialog(props: {
   const [due, setDue] = createSignal(props.todo.due)
   // One focused input at a time: the content box keeps its text, the due box takes over while editing a custom date.
   const [dueEditing, setDueEditing] = createSignal(false)
+  let contentArea: TextareaRenderable | undefined
   const cycle = () => {
     const index = EDIT_PRIORITIES.indexOf(priority())
     setPriority(EDIT_PRIORITIES[(index + 1) % EDIT_PRIORITIES.length])
   }
+  // A task is one line in TODO.md: a pasted newline becomes a space.
   const save = (value: string) => {
-    const content = value.trim()
+    const content = value.replace(/\s*\n\s*/g, " ").trim()
     if (content) props.onSave(content, priority(), due())
   }
   const dueChoices = () =>
@@ -128,7 +130,19 @@ function EditDialog(props: {
       <Show when={props.todo.done}>
         <text>{`Completed ${props.todo.done}`}</text>
       </Show>
-      <input value={props.todo.content} focused={!dueEditing()} onSubmit={save} />
+      <textarea
+        ref={(node) => (contentArea = node)}
+        initialValue={props.todo.content}
+        focused={!dueEditing()}
+        height={7}
+        wrapMode="word"
+        keyBindings={[
+          { name: "return", action: "submit" },
+          { name: "kpenter", action: "submit" },
+          { name: "linefeed", action: "submit" },
+        ]}
+        onSubmit={() => save(contentArea?.plainText ?? "")}
+      />
       <Show when={dueEditing()}>
         <input
           value={due() ?? ""}
