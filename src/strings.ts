@@ -33,7 +33,7 @@ export const STRINGS = {
     none: "none",
     noTasks: "Todo · no tasks",
     search: "Search and press Enter (open, high, #12, @tag)",
-    hint: "Click: #id edits · state cycles · content toggles · priority cycles · due prompts · Esc closes",
+    hint: "Click: #id or content edits · state cycles · priority cycles · due prompts · Esc closes",
     page: (current: number, total: number) => `▲ ${current}/${total} ▼`,
     count: (total: number) => `${total} task`,
     editTitle: "Edit task",

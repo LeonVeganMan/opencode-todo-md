@@ -107,8 +107,8 @@ Search and press Enter (open, high, #12, @tag)
 - `▲`/`▼` scroll the list by one screen (4 to 12 rows, from the terminal height); the mouse wheel works too.
 - Search applies on Enter and understands `open`, `done`, `cancelled`, `high`, `medium`, `low`, `#12`, `@tag` and free
   text.
-- One line per task, description last and clipped with `…` when the panel is narrow. Click `#id` to edit, `st` or the
-  description to cycle pending → in progress → completed, `prio` to cycle, `due` to ask for a date, `tag` to filter by
+- One line per task, description last and clipped with `…` when the panel is narrow. Click `#id` or the description to
+  edit, `st` to cycle pending → in progress → completed, `prio` to cycle, `due` to ask for a date, `tag` to filter by
   that task's first tag.
 - Click the `#id`, `prio`, `created`, `due` or `done` header to sort by that column; the sorted column is marked with
   `▲`, a second click restores the default order.

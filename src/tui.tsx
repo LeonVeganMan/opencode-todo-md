@@ -1,6 +1,6 @@
 /** @jsxImportSource @opentui/solid */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, ErrorBoundary, type JSX } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount, ErrorBoundary, type JSX } from "solid-js"
 import { dirname, join } from "node:path"
 import type { ScrollBoxRenderable, TextareaRenderable } from "@opentui/core"
 import { Plugin, usePlugin } from "@opencode/plugin/tui"
@@ -345,9 +345,22 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         FILTER_ORDER.map((value) => [value, todosFor(scope(), value).length]),
       ) as Record<TodoFilter, number>,
   )
-  const rows = createMemo(() => {
+  const key = (todo: Todo, index: number) => (todo.id !== undefined ? `#${todo.id}` : `t${index}`)
+  const arranged = createMemo(() => {
     const filtered = base().filter((todo) => matchesQuery(todo, query()))
     return sort() ? sortBy(filtered, sort()!) : sortTodos(filtered)
+  })
+  // The order is frozen while the dialog is open: a state or priority click must not move the row under the pointer.
+  // It is rebuilt when the visible set changes, and from scratch on the next open because the dialog remounts.
+  const [order, setOrder] = createSignal<string[]>([])
+  createEffect(on([filter, sort, query, tag, priority], () => setOrder(arranged().map((item) => key(item.todo, item.index)))))
+  const rows = createMemo(() => {
+    const rank = new Map(order().map((value, index) => [value, index]))
+    return [...arranged()].sort(
+      (a, b) =>
+        (rank.get(key(a.todo, a.index)) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(key(b.todo, b.index)) ?? Number.MAX_SAFE_INTEGER),
+    )
   })
   const tagWidth = createMemo(() => tagWidthOf(base()))
   // Clamped cursor: deletes and filters can shrink the list under it.
@@ -364,7 +377,6 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
     else if (c >= top + ROWS) box.scrollTo(c - ROWS + 1)
   })
 
-  const key = (todo: Todo, index: number) => (todo.id !== undefined ? `#${todo.id}` : `t${index}`)
   const refresh = () => setTick((value) => value + 1)
 
   // The list keeps its own cursor while the search box does not have the keyboard.
@@ -626,8 +638,8 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
                     flexShrink={0}
                     fg={cellColor(theme(), todo, position, settings.palette)}
                     onMouseUp={() => {
-                      if (position === 0) return void editTodo(context, props.sessionID, key(todo, index))
-                      if (position === 1 || position === 7) return toggle(todo, index)
+                      if (position === 0 || position === 7) return void editTodo(context, props.sessionID, key(todo, index))
+                      if (position === 1) return toggle(todo, index)
                       if (position === 2) return cyclePriority(todo, index)
                       if (position === 4) return void changeDue(context, props.sessionID, key(todo, index)).then(refresh)
                       if (position === 6) setTag(tagsOf(todo.content)[0])
