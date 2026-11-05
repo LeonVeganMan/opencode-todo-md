@@ -46,6 +46,7 @@ import { STRINGS } from "./strings.ts"
 import { pageSize } from "./page.ts"
 import { DEFAULT_SETTINGS, loadSettings, mergeSettings, saveSettings, type Palette, type Settings } from "./settings.ts"
 import { isDueSoon, isOverdue, parseChecklist, type Todo, type TodoPriority } from "./checklist.ts"
+import { appendNote, deleteNote, filterNotes, isNoteDue, onNotesChanged, parseRemind, readNotes, saveNotes, snoozeNote, updateNote, stamp, type Note } from "./notes.ts"
 
 // "none" clears the priority: updateTodo passes it through as an explicit undefined.
 const EDIT_PRIORITIES: Array<TodoPriority | undefined> = [undefined, "high", "medium", "low"]
@@ -895,6 +896,260 @@ function openHelpDialog(context: ReturnType<typeof usePlugin>) {
   void context.ui.dialog.show(() => guarded("help", () => <HelpDialog close={() => context.ui.dialog.clear()} />), () => {})
 }
 
+function NotesDialog(props: { sessionID: string; close: () => void }) {
+  const context = usePlugin()
+  const directory = directoryOf(context, props.sessionID)
+  const settings = loadSettings(directory)
+  const theme = () => colorsOf(context)
+  const [tick, setTick] = createSignal(0)
+  const [cursor, setCursor] = createSignal(0)
+  const [filter, setFilter] = createSignal("all")
+  const [query, setQuery] = createSignal("")
+  const [focusSearch, setFocusSearch] = createSignal(false)
+  const [pendingDelete, setPendingDelete] = createSignal<number>()
+  const [scroll, setScroll] = createSignal<ScrollBoxRenderable>()
+  const loaded = createMemo(() => {
+    tick()
+    return readNotes(directory)
+  })
+  const notes = createMemo(() => loaded().notes)
+  const rows = settings.pageRows > 0 ? settings.pageRows : Math.max(4, pageSize() - (settings.borderStyle === "none" ? 0 : 2))
+  const tags = createMemo(() => [...new Set(notes().flatMap((note) => tagsOf(note.content)))])
+  const filters = createMemo(() => [
+    { key: "all", label: STRINGS.notes.all(notes().length) },
+    { key: "due", label: STRINGS.notes.due(notes().filter((note) => isNoteDue(note)).length) },
+    ...tags().map((tag) => ({
+      key: tag,
+      label: STRINGS.notes.tag(tag, notes().filter((note) => tagsOf(note.content).includes(tag)).length),
+    })),
+  ])
+  const visible = createMemo(() => filterNotes(notes(), filter()))
+  const shown = createMemo(() => {
+    const search = query().trim().toLowerCase()
+    return search ? visible().filter((note) => note.content.toLowerCase().includes(search)) : visible()
+  })
+  const at = () => Math.min(cursor(), Math.max(0, shown().length - 1))
+  const current = () => shown()[at()]
+  const dueCount = createMemo(() => notes().filter((note) => isNoteDue(note)).length)
+
+  onMount(() => context.ui.dialog.set?.({ size: "xlarge", centered: true }))
+
+  const save = (text: string, message: string) => {
+    saveNotes(loaded().file, text)
+    setTick((value) => value + 1)
+    context.ui.toast.show({ message, variant: "success" })
+  }
+
+  const reset = () => {
+    setPendingDelete(undefined)
+    setCursor(0)
+  }
+
+  const cycleFilter = () => {
+    const keys = filters().map((item) => item.key)
+    setFilter(keys[(keys.indexOf(filter()) + 1) % keys.length] ?? "all")
+    reset()
+  }
+
+  const search = () => setFocusSearch(true)
+
+  const add = async () => {
+    const content = await context.ui.dialog.prompt({ title: STRINGS.notes.newTitle, placeholder: STRINGS.notes.newPlaceholder })
+    if (!content?.trim()) return
+    save(appendNote(loaded().text, content).text, STRINGS.notes.added)
+    setFilter("all")
+    setQuery("")
+    setCursor(shown().length - 1)
+  }
+
+  const edit = async () => {
+    const note = current()
+    if (!note) return
+    const content = await context.ui.dialog.prompt({
+      title: STRINGS.notes.editTitle,
+      placeholder: STRINGS.notes.editPlaceholder,
+      value: note.content,
+    })
+    if (!content?.trim() || content.trim() === note.content) return
+    save(updateNote(loaded().text, note.id, { content }).text, STRINGS.notes.updated)
+  }
+
+  const remove = () => {
+    const note = current()
+    if (!note) return
+    if (pendingDelete() !== note.id) return setPendingDelete(note.id)
+    save(deleteNote(loaded().text, note.id).text, STRINGS.notes.deleted)
+    setPendingDelete(undefined)
+    setCursor((value) => Math.min(value, Math.max(0, shown().length - 1)))
+  }
+
+  const snooze = async () => {
+    const note = current()
+    if (!note) return
+    const choice = await context.ui.dialog.select({
+      title: STRINGS.notes.snooze,
+      current: "",
+      options: [
+        { title: STRINGS.notes.snooze5, value: "5" },
+        { title: STRINGS.notes.snooze30, value: "30" },
+        { title: STRINGS.notes.snooze60, value: "60" },
+        { title: STRINGS.notes.snoozeClear, value: "clear" },
+      ],
+    })
+    if (choice === undefined) return
+    if (choice === "clear") {
+      save(updateNote(loaded().text, note.id, { remind: null }).text, STRINGS.notes.cleared)
+      return
+    }
+    save(snoozeNote(loaded().text, note.id, Number(choice)).text, STRINGS.notes.snoozed)
+  }
+
+  const move = (delta: number) => {
+    setPendingDelete(undefined)
+    setCursor((value) => Math.max(0, Math.min(shown().length - 1, value + delta)))
+  }
+
+  const remindColor = (note: Note) => {
+    if (!note.remind) return theme().textMuted
+    if (isNoteDue(note)) return theme().error
+    if (note.remind <= stamp(new Date(Date.now() + 7_200_000))) return theme().warning ?? theme().info
+    return theme().textMuted
+  }
+
+  context.keymap.layer(() => ({
+    mode: "global" as const,
+    commands: [
+      {
+        id: "opencode-todo-md.notes.close",
+        title: STRINGS.commands.close,
+        bind: "escape",
+        run: () => {
+          if (focusSearch()) return setFocusSearch(false)
+          props.close()
+        },
+      },
+      { id: "opencode-todo-md.notes.up", title: STRINGS.commands.up, bind: "up", run: () => move(-1) },
+      { id: "opencode-todo-md.notes.down", title: STRINGS.commands.down, bind: "down", run: () => move(1) },
+      { id: "opencode-todo-md.notes.pageup", title: STRINGS.commands.pageUp, bind: "pageup", run: () => move(-rows) },
+      { id: "opencode-todo-md.notes.pagedown", title: STRINGS.commands.pageDown, bind: "pagedown", run: () => move(rows) },
+      { id: "opencode-todo-md.notes.home", title: STRINGS.commands.home, bind: "home", run: () => setCursor(0) },
+      { id: "opencode-todo-md.notes.end", title: STRINGS.commands.end, bind: "end", run: () => setCursor(Math.max(0, shown().length - 1)) },
+      { id: "opencode-todo-md.notes.search", title: STRINGS.notes.search, bind: "/", run: search },
+      { id: "opencode-todo-md.notes.filter", title: STRINGS.notes.filter, bind: "tab", run: cycleFilter },
+      { id: "opencode-todo-md.notes.create", title: STRINGS.commands.create, bind: "ctrl+n", run: add },
+      { id: "opencode-todo-md.notes.edit", title: STRINGS.commands.edit, bind: "ctrl+e", run: edit },
+      {
+        id: "opencode-todo-md.notes.snooze",
+        title: STRINGS.notes.snooze,
+        bind: "s",
+        run: () => {
+          if (focusSearch()) return
+          void snooze()
+        },
+      },
+      { id: "opencode-todo-md.notes.delete", title: STRINGS.commands.delete, bind: "ctrl+d", run: remove },
+    ],
+  }))
+
+  createEffect(() => {
+    const box = scroll()
+    if (!box) return
+    const c = at()
+    const top = box.scrollTop
+    if (c < top) box.scrollTo(c)
+    else if (c >= top + rows) box.scrollTo(c - rows + 1)
+  })
+
+  return (
+    <box
+      flexDirection="column"
+      border={settings.borderStyle !== "none"}
+      borderStyle={settings.borderStyle === "none" ? undefined : settings.borderStyle}
+      borderColor={pendingDelete() ? (theme().error ?? ROW_COLORS.overdue) : query() ? (theme().info ?? ROW_COLORS.id) : theme().textMuted}
+      paddingLeft={settings.padding}
+      paddingTop={settings.padding}
+    >
+      <text>
+        <b>{STRINGS.notes.title}</b>
+      </text>
+      <text fg={theme().textMuted}>{`${notes().length} ${notes().length === 1 ? "note" : "notes"} · ${dueCount()} due`}</text>
+      <text> </text>
+      <box flexDirection="row" gap={1}>
+        <For each={filters()}>
+          {(item) => (
+            <text
+              flexShrink={0}
+              fg={item.key === filter() ? theme().text : theme().textMuted}
+              onMouseUp={() => {
+                setFilter(item.key)
+                reset()
+              }}
+            >{`${item.key === filter() ? "●" : "○"} ${item.label}`}</text>
+          )}
+        </For>
+      </box>
+      <input
+        value={query()}
+        placeholder={STRINGS.notes.searchPlaceholder}
+        focused={focusSearch()}
+        onMouseUp={() => setFocusSearch(true)}
+        onSubmit={(value) => {
+          setQuery(value)
+          setCursor(0)
+          setFocusSearch(false)
+        }}
+      />
+      <Show when={query()}>
+        <text fg={theme().info}>{`Search: ${query()}`}</text>
+      </Show>
+      <text> </text>
+      <box flexDirection="row" gap={1}>
+        <text>{"  "}</text>
+        <text width={4} fg={theme().textMuted}><b>#id</b></text>
+        <text width={40} fg={theme().textMuted}><b>note</b></text>
+        <text width={14} fg={theme().textMuted}><b>tags</b></text>
+        <text width={16} fg={theme().textMuted}><b>remind</b></text>
+      </box>
+      <Show
+        when={shown().length > 0}
+        fallback={
+          <text fg={theme().textMuted}>{notes().length === 0 ? STRINGS.notes.empty : STRINGS.notes.emptyFiltered}</text>
+        }
+      >
+        <scrollbox
+          ref={setScroll}
+          height={rows}
+          flexShrink={0}
+          flexDirection="column"
+          focusable={false}
+          verticalScrollbarOptions={{ visible: false }}
+        >
+          <For each={shown()}>
+            {(note, index) => (
+              <box flexDirection="row" gap={1}>
+                <text>{index() === at() ? "▸ " : "  "}</text>
+                <text width={4} fg={theme().textMuted}>{`#${note.id}`}</text>
+                <text width={40}>{clip(note.content, 40)}</text>
+                <text width={14} fg={theme().info}>{clip(tagsOf(note.content).join(" "), 14) || "—"}</text>
+                <text width={16} fg={remindColor(note)}>{note.remind ?? "—"}</text>
+              </box>
+            )}
+          </For>
+        </scrollbox>
+      </Show>
+      <text> </text>
+      <text fg={theme().textMuted}>{STRINGS.notes.page(at() + 1, shown().length)}</text>
+      <text fg={theme().textMuted}>{STRINGS.notes.hint}</text>
+    </box>
+  )
+}
+
+function openNotesDialog(context: ReturnType<typeof usePlugin>, sessionID: string) {
+  context.ui.dialog.clear()
+  context.ui.dialog.set({ size: "large", centered: true })
+  void context.ui.dialog.show(() => guarded("notes", () => <NotesDialog sessionID={sessionID} close={() => context.ui.dialog.clear()} />), () => {})
+}
+
 function Strip(props: { sessionID: string }) {
   const context = usePlugin()
   const settings = loadSettings(directoryOf(context, props.sessionID))
@@ -917,7 +1172,39 @@ function Strip(props: { sessionID: string }) {
     })
     if (stop) onCleanup(stop)
     onCleanup(onTodosChanged(() => setTick((value) => value + 1)))
+    onCleanup(onNotesChanged(() => setTick((value) => value + 1)))
+
+    const seen = new Set<string>()
+    const checkReminders = () => {
+      const { notes } = readNotes(directoryOf(context, props.sessionID))
+      for (const note of notes) {
+        if (!note.remind || !isNoteDue(note)) continue
+        const key = `${note.id}:${note.remind}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        context.ui.toast.show({ message: STRINGS.notes.reminder(note.id, note.content), variant: "warning" })
+      }
+    }
+    checkReminders()
+    const reminders = setInterval(checkReminders, 30_000)
+    onCleanup(() => clearInterval(reminders))
   })
+
+  const noteCommand = (input?: string) => {
+    const args = String(input ?? "").trim()
+    if (!args || args === "list") return openNotesDialog(context, props.sessionID)
+    const match = args.match(/\s+remind=(\S+)\s*$/i)
+    const content = match ? args.slice(0, match.index ?? args.length).trim() : args
+    const remind = parseRemind(match ? match[1] : "")
+    if (!remind.ok) {
+      context.ui.toast.show({ message: STRINGS.notes.invalidRemind, variant: "error" })
+      return
+    }
+    if (!content) return openNotesDialog(context, props.sessionID)
+    const loadedNotes = readNotes(directoryOf(context, props.sessionID))
+    saveNotes(loadedNotes.file, appendNote(loadedNotes.text, content, { remind: remind.remind }).text)
+    context.ui.toast.show({ message: STRINGS.notes.added, variant: "success" })
+  }
 
   const openList = () => {
     // The setting is opt-in: creating files behind the user's back is not the default.
@@ -931,6 +1218,13 @@ function Strip(props: { sessionID: string }) {
   context.keymap.layer(() => ({
     mode: "global" as const,
     commands: [
+      {
+        id: "opencode-todo-md.note",
+        title: STRINGS.commands.openNotes,
+        slash: { name: "note", arguments: true },
+        palette: true,
+        run: (input?: string) => noteCommand(input),
+      },
       {
         id: "opencode-todo-md.open",
         title: STRINGS.commands.openList,
@@ -972,6 +1266,14 @@ function Strip(props: { sessionID: string }) {
   }
   const done = createMemo(() => todos().filter((todo) => todo.status === "completed").length)
   const collapsible = () => todos().length > settings.stripCollapse
+  const noteList = createMemo(() => {
+    tick()
+    return readNotes(directoryOf(context, props.sessionID)).notes
+  })
+  const noteCount = createMemo(() => noteList().length)
+  const noteDue = createMemo(() => noteList().filter((note) => isNoteDue(note)).length)
+  const [notesOpen, setNotesOpen] = createSignal(true)
+  const notesCollapsible = () => noteCount() > 0
 
   // Color carries the priority: red high, yellow medium, muted low or unset. An overdue task is always red.
   const colorOf = (todo: Todo) => (isOverdue(todo) ? colorsOf(context).error : priorityColor(colorsOf(context), todo.priority))
@@ -987,6 +1289,36 @@ function Strip(props: { sessionID: string }) {
   })
 
   return (
+    <box flexDirection="column" gap={0}>
+    <Show when={noteCount() > 0}>
+      <box width="100%" flexDirection="row" gap={1}>
+        <Show when={notesCollapsible()}>
+          <box flexShrink={0} onMouseUp={() => setNotesOpen((value) => !value)}>
+            <text fg={colorsOf(context).text}>{notesOpen() ? "▼" : "▶"}</text>
+          </box>
+        </Show>
+        <box flexGrow={1} minWidth={0} onMouseUp={() => openNotesDialog(context, props.sessionID)}>
+          <text fg={colorsOf(context).textMuted}>
+            <b>{`Notes ${noteDue()}/${noteCount()}`}</b>
+          </text>
+        </box>
+      </box>
+      <Show when={!notesCollapsible() || notesOpen()}>
+        <For each={noteList()}>
+          {(note) => {
+            const prefix = `#${note.id} `
+            return (
+              <text
+                onMouseUp={() => openNotesDialog(context, props.sessionID)}
+                fg={isNoteDue(note) ? colorsOf(context).error : colorsOf(context).textMuted}
+              >
+                {prefix + clip(note.content, settings.stripMax - prefix.length)}
+              </text>
+            )
+          }}
+        </For>
+      </Show>
+    </Show>
     <Show
       when={todos().length > 0}
       fallback={
@@ -1034,6 +1366,7 @@ function Strip(props: { sessionID: string }) {
         </Show>
       </box>
     </Show>
+    </box>
   )
 }
 

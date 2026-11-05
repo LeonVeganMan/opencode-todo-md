@@ -57,6 +57,15 @@ npm: https://www.npmjs.com/package/opencode-todo-md
 - The list scrolls instead of paging: the cursor walks every task and the view follows it.
 - Settings values are clipped to their column, `Save to` shows `global` or `project`, and the dialog centres itself at mount.
 
+## What's new in 0.1.18
+
+- `opencode-notes.md` keeps project ideas and reminders with stable ids, `@tags` and an optional time.
+- `/note` captures a note, `/note` opens the list: filters by due date and tag, `/` search, `s` snooze 5/30/60 minutes,
+  `ctrl+n`/`ctrl+e`/`ctrl+d` to add, edit and delete.
+- `note_read`, `note_write` and `note_delete` give the agent the same notes across sessions.
+- The sidebar lists the notes above the todo list, collapsible, with due reminders in red; reminders fire a toast every
+  30 seconds while the TUI is open.
+
 ## What's new in 0.1.17
 
 - `ctrl+z` restores the last deleted task at its original position, and `ctrl+g` renumbers the ids without leaving the list.
@@ -86,5 +95,5 @@ npm: https://www.npmjs.com/package/opencode-todo-md
 - The help dialog carries the symbol legend.
 - Render errors in the sidebar and dialogs go to `~/.local/state/opencode/todo-md-errors.log` instead of vanishing.
 
-Status: v0.1.17, 66 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
+Status: v0.1.18, 78 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
 run `/reload`, after installing or updating.

@@ -2,6 +2,18 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { Plugin } from "@opencode/plugin"
 import { TODO_PRIORITIES, TODO_STATUSES, isOverdue, readTodos, type Todo } from "./checklist.ts"
+import {
+  appendNote,
+  deleteNote,
+  isNoteDue,
+  notesFile,
+  parseNotes,
+  parseRemind,
+  readNotes,
+  saveNotes,
+  updateNote,
+  type Note,
+} from "./notes.ts"
 import { writeTodos } from "./write.ts"
 
 function render(todos: Array<Todo>): string {
@@ -23,11 +35,44 @@ function render(todos: Array<Todo>): string {
     .join("\n")
 }
 
-/** TODO.md lives in the session's project directory, never in the process cwd. */
-async function todoFile(ctx: Plugin.Context, sessionID: string): Promise<string> {
-  const info = (await ctx.session.get({ sessionID })) as { directory?: string } | undefined
-  return join(info?.directory || ctx.location.directory, "TODO.md")
+function renderNotes(notes: Array<Note>): string {
+  if (notes.length === 0) return "(no notes)"
+  return notes
+    .map((note) => {
+      const detail = [
+        note.created ? `created ${note.created}` : "",
+        note.remind ? (isNoteDue(note) ? `reminder ${note.remind} (due)` : `reminder ${note.remind}`) : "",
+      ]
+        .filter(Boolean)
+        .join(", ")
+      return `#${note.id} ${note.content}${detail ? ` — ${detail}` : ""}`
+    })
+    .join("\n")
 }
+
+/** TODO.md and opencode-notes.md live in the session's project directory, never in the process cwd. */
+async function projectDirectory(ctx: Plugin.Context, sessionID: string): Promise<string> {
+  const info = (await ctx.session.get({ sessionID })) as { directory?: string } | undefined
+  return info?.directory || ctx.location.directory
+}
+
+async function todoFile(ctx: Plugin.Context, sessionID: string): Promise<string> {
+  return join(await projectDirectory(ctx, sessionID), "TODO.md")
+}
+
+const NOTE_WRITE_SCHEMA = {
+  type: "object",
+  properties: {
+    id: { type: "integer", minimum: 1, description: "Id of the note to update. Omit to add a new note." },
+    content: { type: "string", description: "Note text; @tags are allowed. Omit to change only the reminder of an existing note." },
+    remind: {
+      type: "string",
+      description: "Optional reminder: relative 15m, 2h, 1d, or local YYYY-MM-DDTHH:MM. An empty string clears it when patching by id.",
+    },
+  },
+  anyOf: [{ required: ["content"] }, { required: ["id"] }],
+  additionalProperties: false,
+} as const
 
 const INPUT_SCHEMA = {
   type: "object",
@@ -93,6 +138,74 @@ export default Plugin.define({
           const file = await todoFile(ctx, context.sessionID)
           const todos = existsSync(file) ? readTodos(readFileSync(file, "utf8")) : []
           return { content: `Project todo list (TODO.md):\n${render(todos)}` }
+        },
+      })
+
+      editor.add({
+        name: "note_read",
+        description:
+          "Read the project notes from opencode-notes.md: id, text, tags, creation date and optional reminder. Use it to recall ideas and reminders from earlier sessions.",
+        input: { type: "object", properties: {}, additionalProperties: false },
+        options: { codemode: true },
+        execute: async (_input, context) => {
+          const directory = await projectDirectory(ctx, context.sessionID)
+          const { notes } = readNotes(directory)
+          return { content: `Project notes (opencode-notes.md):\n${renderNotes(notes)}` }
+        },
+      })
+
+      editor.add({
+        name: "note_write",
+        description: [
+          "Add or update a note in opencode-notes.md at the project root, with an optional reminder.",
+          "Omit `id` to append a new note; pass `id` to patch that note (read the ids with note_read first).",
+          "`remind` accepts a relative 15m, 2h, 1d or a local YYYY-MM-DDTHH:MM; an empty string clears it.",
+          "Notes are plain markdown lines shared by every session of the project, so keep them short and self-contained.",
+        ].join(" "),
+        input: NOTE_WRITE_SCHEMA,
+        options: { codemode: true },
+        execute: async (input, context) => {
+          const directory = await projectDirectory(ctx, context.sessionID)
+          const file = notesFile(directory)
+          const { text } = readNotes(directory)
+          const parsed = input.remind === undefined ? { ok: true as const, remind: undefined } : parseRemind(input.remind)
+          if (!parsed.ok) {
+            return { content: `Invalid reminder "${input.remind}": use 15m, 2h, 1d or YYYY-MM-DDTHH:MM.` }
+          }
+          if (input.id === undefined) {
+            if (!input.content?.trim()) return { content: "A note needs content." }
+            const added = appendNote(text, input.content, { remind: parsed.remind })
+            saveNotes(file, added.text)
+            return { content: `Added note #${added.note.id}:\n${renderNotes(parseNotes(added.text).notes)}` }
+          }
+          const updated = updateNote(text, input.id, {
+            content: input.content,
+            remind: input.remind === "" ? null : parsed.remind,
+          })
+          if (!updated.note) return { content: `No note with id ${input.id}.` }
+          saveNotes(file, updated.text)
+          return { content: `Updated note #${updated.note.id}:\n${renderNotes(parseNotes(updated.text).notes)}` }
+        },
+      })
+
+      editor.add({
+        name: "note_delete",
+        description: "Delete one project note from opencode-notes.md by id. Use note_read first to find the id.",
+        input: {
+          type: "object",
+          properties: { id: { type: "integer", minimum: 1, description: "Id of the note to delete." } },
+          required: ["id"],
+          additionalProperties: false,
+        },
+        options: { codemode: true },
+        execute: async (input, context) => {
+          const directory = await projectDirectory(ctx, context.sessionID)
+          const file = notesFile(directory)
+          const { text } = readNotes(directory)
+          const removed = deleteNote(text, input.id)
+          if (!removed.note) return { content: `No note with id ${input.id}.` }
+          saveNotes(file, removed.text)
+          return { content: `Deleted note #${removed.note.id}:\n${renderNotes(parseNotes(removed.text).notes)}` }
         },
       })
     })
