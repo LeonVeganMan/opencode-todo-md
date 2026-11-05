@@ -81,7 +81,7 @@ never reused, so a patch cannot hit the wrong task after a reorder.
 | `/todo done <id>` | Marks a task completed |
 | `/todo init` | Creates `TODO.md` with `## To do` and `## Done` |
 | `/todo import` | Adopts a hand-written list: plain `-`, `*` and `1.` items become checkboxes, after a preview |
-| `/todo renumber` | Rewrites ids as 1..N in file order, after a warning |
+| `/todo renumber` | Rewrites ids as 1..N by priority then due date, completed and cancelled last, after a warning |
 | `/todo settings` | Opens the settings dialog: click a row to cycle its value |
 | `/todo help` | Lists the subcommands (they are arguments of `/todo`, so the palette shows only `/todo`) |
 
@@ -111,7 +111,7 @@ Search and press Enter (open, high, #12, @tag)
   edit, `st` to cycle pending → in progress → completed, `prio` to cycle, `due` to ask for a date, `tag` to filter by
   that task's first tag.
 - Click the `#id`, `prio`, `created`, `due` or `done` header to sort by that column; the sorted column is marked with
-  `▲`, a second click restores the default order.
+  `▲`, a second click restores the default order. Open tasks stay on top in every sort, completed and cancelled last.
 - The list has a cursor (`▸`): `↑`/`↓` move it and the list scrolls just enough to keep it visible, so the cursor
   never stops at the edge. `space` cycles the selected task's state, `ctrl+e` edits it, `ctrl+n` adds a task, `PgUp`/`PgDn` scroll one
   screen, `Home`/`End` jump to the first or last task.
@@ -244,6 +244,13 @@ The plugins live in the same repository as the sources; OpenCode resolves `@open
 to be installed locally to try a change.
 
 ## Changelog
+
+### 0.1.17
+
+- `ctrl+z` restores the last deleted task at its original position; `ctrl+g` renumbers the ids without leaving the list.
+- `/todo renumber` orders ids by priority and then due date, with completed and cancelled tasks last.
+- The default list order follows the same rule, so the panel and the ids agree.
+- Every column sort keeps open tasks on top and closed ones at the bottom; `prio` breaks ties on the nearest due date.
 
 ### 0.1.16
 

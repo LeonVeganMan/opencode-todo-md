@@ -57,6 +57,13 @@ npm: https://www.npmjs.com/package/opencode-todo-md
 - The list scrolls instead of paging: the cursor walks every task and the view follows it.
 - Settings values are clipped to their column, `Save to` shows `global` or `project`, and the dialog centres itself at mount.
 
+## What's new in 0.1.17
+
+- `ctrl+z` restores the last deleted task at its original position, and `ctrl+g` renumbers the ids without leaving the list.
+- `/todo renumber` orders ids by priority and then due date, with completed and cancelled tasks last.
+- The default list order follows the same rule, so the panel and the ids agree.
+- Every column sort keeps open tasks on top and closed ones at the bottom; `prio` breaks ties on the nearest due date.
+
 ## What's new in 0.1.16
 
 - Clicking the description opens the editor, like clicking `#id`; only the state cell cycles a task.
@@ -79,5 +86,5 @@ npm: https://www.npmjs.com/package/opencode-todo-md
 - The help dialog carries the symbol legend.
 - Render errors in the sidebar and dialogs go to `~/.local/state/opencode/todo-md-errors.log` instead of vanishing.
 
-Status: v0.1.16, 63 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
+Status: v0.1.17, 66 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
 run `/reload`, after installing or updating.
