@@ -452,20 +452,6 @@ const PRIORITY_OPTIONS: Array<SelectOption> = [
   { title: "Low", value: "low" },
 ]
 
-/** The order `/todo renumber` hands out ids in: highest priority, then the nearest due date, then the current order. */
-export function renumberOrder(todos: Array<Todo>): Array<number> {
-  return todos
-    .map((todo, index) => ({ todo, index }))
-    .sort((a, b) => {
-      const rank = (a.todo.priority ? PRIORITY_RANK[a.todo.priority] : 3) - (b.todo.priority ? PRIORITY_RANK[b.todo.priority] : 3)
-      if (rank !== 0) return rank
-      const due = (a.todo.due ?? "9999-99-99").localeCompare(b.todo.due ?? "9999-99-99")
-      if (due !== 0) return due
-      return a.index - b.index
-    })
-    .map((entry) => entry.index)
-}
-
 /** Rewrites every id as 1..N after a confirm: ids are stable by design, so this invalidates old references. */
 export async function renumberTodo(context: DialogContext, sessionID: string): Promise<boolean> {
   const loaded = readFile(directoryOf(context, sessionID))
@@ -475,7 +461,7 @@ export async function renumberTodo(context: DialogContext, sessionID: string): P
     message: STRINGS.prompts.renumberMessage(loaded.todos.length),
   })
   if (!ok) return false
-  commit(loaded.file, renumberChecklist(loaded.text, renumberOrder(loaded.todos)))
+  commit(loaded.file, renumberChecklist(loaded.text))
   context.ui.toast.show({ message: STRINGS.toasts.renumbered, variant: "success" })
   return true
 }

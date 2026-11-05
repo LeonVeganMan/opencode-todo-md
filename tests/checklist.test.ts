@@ -7,7 +7,7 @@ import { MARKERS, STRINGS } from "../src/strings.ts"
 import { SHORTCUTS } from "../src/shortcuts.ts"
 import { pageSize } from "../src/page.ts"
 import { DEFAULT_SETTINGS, loadSettings, mergeSettings, projectSettingsFile, saveSettings } from "../src/settings.ts"
-import { TABLE_HEADER, addTodo, changeDue, completeTodo, cycleTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, removeTodo, renumberOrder, sortBy, summaryTitle, tableHeader, tableRow, descriptionOf, tagWidthOf, tagsOf, todosFor, updateTodo } from "../src/command.ts"
+import { TABLE_HEADER, addTodo, changeDue, completeTodo, cycleTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, removeTodo, sortBy, summaryTitle, tableHeader, tableRow, descriptionOf, tagWidthOf, tagsOf, todosFor, updateTodo } from "../src/command.ts"
 
 const NOTE = "# TODO\n\nNota da preservare.\n\n- [ ] uno\n- [ ] due\n"
 
@@ -628,20 +628,9 @@ describe("help command", () => {
 })
 
 describe("renumber", () => {
-  test("ids follow priority, then the nearest due date", () => {
-    const todos: Array<Todo> = [
-      { content: "low no due", status: "pending", priority: "low" },
-      { content: "high late", status: "pending", priority: "high", due: "2026-12-01" },
-      { content: "high soon", status: "pending", priority: "high", due: "2026-11-03" },
-      { content: "none", status: "pending" },
-    ]
-    expect(renumberOrder(todos)).toEqual([2, 1, 0, 3])
-  })
-
   test("rewrites ids 1..N in place and keeps every other field", () => {
     const text = "# TODO\n\nNota.\n\n- [ ] b <!-- id=7 priority=high due=2026-11-03 created=2026-10-01 -->\n- [x] a <!-- id=9 done=2026-10-30 created=2026-09-01 -->\n"
-    const todos = parseChecklist(text).items.map((item) => item.todo)
-    const out = renumberChecklist(text, renumberOrder(todos))
+    const out = renumberChecklist(text)
     expect(out).toContain("Nota.")
     expect(out).toContain("- [ ] b <!-- id=1 priority=high due=2026-11-03 created=2026-10-01 -->")
     expect(out).toContain("- [x] a <!-- id=2 done=2026-10-30 created=2026-09-01 -->")

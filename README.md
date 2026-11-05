@@ -81,7 +81,7 @@ never reused, so a patch cannot hit the wrong task after a reorder.
 | `/todo done <id>` | Marks a task completed |
 | `/todo init` | Creates `TODO.md` with `## To do` and `## Done` |
 | `/todo import` | Adopts a hand-written list: plain `-`, `*` and `1.` items become checkboxes, after a preview |
-| `/todo renumber` | Rewrites ids as 1..N, highest priority first then nearest due date, after a warning |
+| `/todo renumber` | Rewrites ids as 1..N in file order, after a warning |
 | `/todo settings` | Opens the settings dialog: click a row to cycle its value |
 | `/todo help` | Lists the subcommands (they are arguments of `/todo`, so the palette shows only `/todo`) |
 
