@@ -140,10 +140,12 @@ export function insertChecklistItem(text: string, index: number, line: string): 
  * Written directly instead of going through applyChecklist: reusing existing
  * ids would make that function hand a task the metadata of another one.
  */
-export function renumberChecklist(text: string): string {
+export function renumberChecklist(text: string, order: Array<number>): string {
   const { items, lines } = parseChecklist(text)
   const out = [...lines]
-  items.forEach((item, position) => {
+  order.forEach((itemIndex, position) => {
+    const item = items[itemIndex]
+    if (!item) return
     const todo = { ...item.todo, id: position + 1 }
     out[item.index] = `${item.prefix}[${MARK[todo.status]}] ${todo.content}${renderMeta(todo)}`
   })

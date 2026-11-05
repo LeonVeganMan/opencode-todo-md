@@ -44,20 +44,18 @@ export function readFile(directory: string | undefined): { file: string; text: s
 }
 
 const PRIORITY_RANK: Record<TodoPriority, number> = { high: 0, medium: 1, low: 2 }
-const STATUS_RANK: Record<string, number> = { in_progress: 0, pending: 1, completed: 2, cancelled: 3 }
+const FAR_DATE = "9999-99-99"
 
+/** Priority high to low, then the nearest due date; tasks without a date go last. */
+function byPriorityThenDue(a: Todo, b: Todo): number {
+  const rank = (a.priority ? PRIORITY_RANK[a.priority] : 3) - (b.priority ? PRIORITY_RANK[b.priority] : 3)
+  if (rank !== 0) return rank
+  return (a.due ?? FAR_DATE).localeCompare(b.due ?? FAR_DATE)
+}
+
+/** Same order the ids get on renumber: open tasks by priority and due date, closed ones at the bottom. */
 export function sortTodos(todos: Array<Todo>): Array<{ todo: Todo; index: number }> {
-  return todos
-    .map((todo, index) => ({ todo, index }))
-    .sort((left, right) => {
-      const status = (STATUS_RANK[left.todo.status] ?? 9) - (STATUS_RANK[right.todo.status] ?? 9)
-      if (status !== 0) return status
-      const priority =
-        (left.todo.priority ? PRIORITY_RANK[left.todo.priority] : 3) -
-        (right.todo.priority ? PRIORITY_RANK[right.todo.priority] : 3)
-      if (priority !== 0) return priority
-      return (left.todo.created ?? "").localeCompare(right.todo.created ?? "")
-    })
+  return renumberOrder(todos).map((index) => ({ todo: todos[index], index }))
 }
 
 const FILTER_WORDS: Record<string, (todo: Todo) => boolean> = {
@@ -214,32 +212,33 @@ export function filterByPriority(todos: Array<Todo>, priority?: TodoPriority): A
   return priority ? todos.filter((todo) => todo.priority === priority) : todos
 }
 
-/** Sort cycles by key; the first state is the status-first order the list always had. */
+/** Sort cycles by key; the first state is the default priority-then-due order. */
 const SORT_ORDER: Array<SortKey | undefined> = [undefined, "due", "priority", "created", "done", "id"]
 export const SORT_LABEL: Record<string, string> = { ...STRINGS.sorts }
 export function nextSort(current?: SortKey): SortKey | undefined {
   return SORT_ORDER[(SORT_ORDER.indexOf(current) + 1) % SORT_ORDER.length]
 }
 
-/** Orders by one column; missing dates and ids go last instead of first. */
+/** Orders by one column; open tasks come first, missing dates and ids go last. */
 export function sortBy(todos: Array<Todo>, key: SortKey): Array<{ todo: Todo; index: number }> {
-  const far = "9999-99-99"
   return todos
     .map((todo, index) => ({ todo, index }))
     .sort((left, right) => {
       const a = left.todo
       const b = right.todo
+      const state = Number(isClosed(a)) - Number(isClosed(b))
+      if (state !== 0) return state
       switch (key) {
         case "id":
           return (a.id ?? 1e9) - (b.id ?? 1e9)
         case "due":
-          return (a.due ?? far).localeCompare(b.due ?? far)
+          return (a.due ?? FAR_DATE).localeCompare(b.due ?? FAR_DATE)
         case "priority":
-          return (a.priority ? PRIORITY_RANK[a.priority] : 3) - (b.priority ? PRIORITY_RANK[b.priority] : 3)
+          return byPriorityThenDue(a, b)
         case "created":
-          return (a.created ?? far).localeCompare(b.created ?? far)
+          return (a.created ?? FAR_DATE).localeCompare(b.created ?? FAR_DATE)
         case "done":
-          return (a.done ?? far).localeCompare(b.done ?? far)
+          return (a.done ?? FAR_DATE).localeCompare(b.done ?? FAR_DATE)
       }
     })
 }
@@ -452,6 +451,20 @@ const PRIORITY_OPTIONS: Array<SelectOption> = [
   { title: "Low", value: "low" },
 ]
 
+const isClosed = (todo: Todo) => todo.status === "completed" || todo.status === "cancelled"
+
+/** Open tasks first by priority and due date; completed and cancelled go to the bottom. */
+export function renumberOrder(todos: Array<Todo>): Array<number> {
+  return todos
+    .map((todo, index) => ({ todo, index }))
+    .sort((a, b) => {
+      const state = Number(isClosed(a.todo)) - Number(isClosed(b.todo))
+      if (state !== 0) return state
+      return byPriorityThenDue(a.todo, b.todo) || a.index - b.index
+    })
+    .map((entry) => entry.index)
+}
+
 /** Rewrites every id as 1..N after a confirm: ids are stable by design, so this invalidates old references. */
 export async function renumberTodo(context: DialogContext, sessionID: string): Promise<boolean> {
   const loaded = readFile(directoryOf(context, sessionID))
@@ -461,7 +474,7 @@ export async function renumberTodo(context: DialogContext, sessionID: string): P
     message: STRINGS.prompts.renumberMessage(loaded.todos.length),
   })
   if (!ok) return false
-  commit(loaded.file, renumberChecklist(loaded.text))
+  commit(loaded.file, renumberChecklist(loaded.text, renumberOrder(loaded.todos)))
   context.ui.toast.show({ message: STRINGS.toasts.renumbered, variant: "success" })
   return true
 }

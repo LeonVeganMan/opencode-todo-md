@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test"
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { applyChecklist, importBullets, insertChecklistItem, isDueSoon, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, renumberChecklist, today } from "../src/checklist.ts"
+import { applyChecklist, importBullets, insertChecklistItem, isDueSoon, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, renumberChecklist, today, type Todo } from "../src/checklist.ts"
 import { MARKERS, STRINGS } from "../src/strings.ts"
 import { SHORTCUTS } from "../src/shortcuts.ts"
 import { pageSize } from "../src/page.ts"
 import { DEFAULT_SETTINGS, loadSettings, mergeSettings, projectSettingsFile, saveSettings } from "../src/settings.ts"
-import { TABLE_HEADER, addTodo, changeDue, completeTodo, cycleTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, removeTodo, sortBy, summaryTitle, tableHeader, tableRow, descriptionOf, tagWidthOf, tagsOf, todosFor, updateTodo } from "../src/command.ts"
+import { TABLE_HEADER, addTodo, changeDue, completeTodo, cycleTodo, filterByPriority, filterByTag, filterOptions, filterRows, importTodo, initTodo, matchesQuery, nextFilter, nextSort, onTodosChanged, parseTodoCommand, priorityRows, removeTodo, renumberOrder, sortBy, sortTodos, summaryTitle, tableHeader, tableRow, descriptionOf, tagWidthOf, tagsOf, todosFor, updateTodo } from "../src/command.ts"
 
 const NOTE = "# TODO\n\nNota da preservare.\n\n- [ ] uno\n- [ ] due\n"
 
@@ -326,6 +326,23 @@ describe("table, sorting and due prompt", () => {
     expect(sortBy(todos, "due").map(({ todo }) => todo.content)).toEqual(["c", "b", "a"])
   })
 
+  test("sorts by priority, nearest due date first, closed last", () => {
+    const todos: Array<Todo> = [
+      { content: "high late", status: "pending", priority: "high", due: "2026-12-01" },
+      { content: "low", status: "pending", priority: "low" },
+      { content: "high soon", status: "pending", priority: "high", due: "2026-11-03" },
+      { content: "high none", status: "pending", priority: "high" },
+      { content: "done high", status: "completed", priority: "high", due: "2026-10-01" },
+    ]
+    expect(sortBy(todos, "priority").map(({ todo }) => todo.content)).toEqual([
+      "high soon",
+      "high late",
+      "high none",
+      "low",
+      "done high",
+    ])
+  })
+
   test("filters still match after rows switched to #id values", () => {
     const todos = [{ todo: { content: "fix @api", status: "pending" as const, id: 3 }, index: 0 }]
     const options = [{ title: "#3", value: "#3" }]
@@ -534,13 +551,13 @@ describe("page size", () => {
 })
 
 describe("done sort", () => {
-  test("orders by completion date and leaves open tasks last", () => {
+  test("leaves open tasks first and orders the completed by completion date", () => {
     const items: Array<Todo> = [
       { content: "a", status: "pending" },
       { content: "b", status: "completed", done: "2026-10-05" },
       { content: "c", status: "completed", done: "2026-10-01" },
     ]
-    expect(sortBy(items, "done").map(({ todo }) => todo.content)).toEqual(["c", "b", "a"])
+    expect(sortBy(items, "done").map(({ todo }) => todo.content)).toEqual(["a", "c", "b"])
     expect(nextSort("created")).toBe("done")
   })
 })
@@ -628,12 +645,46 @@ describe("help command", () => {
 })
 
 describe("renumber", () => {
+  test("open tasks follow priority and due date, closed ones go last", () => {
+    const todos: Array<Todo> = [
+      { content: "low no due", status: "pending", priority: "low" },
+      { content: "high late", status: "pending", priority: "high", due: "2026-12-01" },
+      { content: "high soon", status: "pending", priority: "high", due: "2026-11-03" },
+      { content: "none", status: "pending" },
+      { content: "done high", status: "completed", priority: "high", due: "2026-10-01" },
+      { content: "cancelled high", status: "cancelled", priority: "high" },
+    ]
+    expect(renumberOrder(todos)).toEqual([2, 1, 0, 3, 4, 5])
+  })
+
   test("rewrites ids 1..N in place and keeps every other field", () => {
     const text = "# TODO\n\nNota.\n\n- [ ] b <!-- id=7 priority=high due=2026-11-03 created=2026-10-01 -->\n- [x] a <!-- id=9 done=2026-10-30 created=2026-09-01 -->\n"
-    const out = renumberChecklist(text)
+    const todos = parseChecklist(text).items.map((item) => item.todo)
+    const out = renumberChecklist(text, renumberOrder(todos))
     expect(out).toContain("Nota.")
     expect(out).toContain("- [ ] b <!-- id=1 priority=high due=2026-11-03 created=2026-10-01 -->")
     expect(out).toContain("- [x] a <!-- id=2 done=2026-10-30 created=2026-09-01 -->")
+  })
+})
+
+describe("default sort", () => {
+  test("open tasks by priority and due date, closed last", () => {
+    const todos: Array<Todo> = [
+      { content: "doing low", status: "in_progress", priority: "low" },
+      { content: "pending high late", status: "pending", priority: "high", due: "2026-12-01" },
+      { content: "pending high soon", status: "pending", priority: "high", due: "2026-11-03" },
+      { content: "done high", status: "completed", priority: "high" },
+      { content: "pending none", status: "pending" },
+    ]
+    const sorted = sortTodos(todos)
+    expect(sorted.map((item) => item.todo.content)).toEqual([
+      "pending high soon",
+      "pending high late",
+      "doing low",
+      "pending none",
+      "done high",
+    ])
+    expect(sorted.map((item) => item.index)).toEqual([2, 1, 0, 4, 3])
   })
 })
 
