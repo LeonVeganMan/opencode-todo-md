@@ -24,7 +24,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          title=$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents:subject)')
+          title=$GITHUB_REF_NAME
+          ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.type + " " + .object.sha')
+          type=${ref%% *}
+          sha=${ref##* }
+          if [ "$type" = "tag" ]; then
+            title=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq '.message' | head -1)
+          fi
           title=${title:-$GITHUB_REF_NAME}
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file release-body.md
