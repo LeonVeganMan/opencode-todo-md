@@ -243,6 +243,9 @@ bun run check
 The plugins live in the same repository as the sources; OpenCode resolves `@opencode/plugin` at runtime, so nothing has
 to be installed locally to try a change.
 
+Releases: bump the version, add a `## What's new in X` section to `ANNOUNCE.md`, then push the `vX` tag. The release
+workflow builds the GitHub Release body from that section with `scripts/release-body.ts`, so the notes live in one place.
+
 ## Changelog
 
 ### 0.1.17

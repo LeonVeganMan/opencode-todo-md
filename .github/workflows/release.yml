@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun test
+      - name: Build the notes from ANNOUNCE.md
+        run: bun scripts/release-body.ts "${GITHUB_REF_NAME#v}" > release-body.md
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title=$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents:subject)')
+          title=${title:-$GITHUB_REF_NAME}
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file release-body.md
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$title" --notes-file release-body.md
+          fi
