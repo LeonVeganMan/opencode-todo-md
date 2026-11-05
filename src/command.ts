@@ -1,7 +1,7 @@
 import { STRINGS } from "./strings.ts"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { TODO_PRIORITIES, applyChecklist, importBullets, isOverdue, parseChecklist, removeChecklistItem, renumberChecklist, type Todo, type TodoPriority } from "./checklist.ts"
+import { TODO_PRIORITIES, applyChecklist, importBullets, insertChecklistItem, isOverdue, parseChecklist, removeChecklistItem, renumberChecklist, type Todo, type TodoPriority } from "./checklist.ts"
 
 export type SelectOption = {
   title: string
@@ -413,14 +413,27 @@ export function updateTodo(
 export type EditHandler = (value: string) => Promise<void>
 
 /** Removes one task after a confirm; the line is dropped as-is, so other lines and metadata stay untouched. */
-export async function deleteTodo(context: DialogContext, sessionID: string, value: string): Promise<void> {
+export async function deleteTodo(context: DialogContext, sessionID: string, value: string): Promise<boolean> {
   const found = loadSelected(context, sessionID, value)
-  if (!found) return
+  if (!found) return false
   const { loaded, index, selected } = found
   const ok = await context.ui.dialog.confirm({ title: STRINGS.prompts.delete, message: selected.content })
-  if (!ok) return
+  if (!ok) return false
   commit(loaded.file, removeChecklistItem(loaded.text, index))
   context.ui.toast.show({ message: STRINGS.toasts.deleted, variant: "success" })
+  return true
+}
+
+/** The exact line a delete removed, and where it was, for an undo. */
+export type DeletedTodo = { line: string; index: number }
+
+/** Puts back the line the last delete removed; the caller keeps the snapshot. */
+export function restoreTodo(context: DialogContext, sessionID: string, deleted: DeletedTodo): boolean {
+  const loaded = readFile(directoryOf(context, sessionID))
+  if (!loaded) return false
+  commit(loaded.file, insertChecklistItem(loaded.text, deleted.index, deleted.line))
+  context.ui.toast.show({ message: STRINGS.toasts.restored, variant: "success" })
+  return true
 }
 
 /** Removes one task without asking; the TUI uses it for the double ctrl+d shortcut. */

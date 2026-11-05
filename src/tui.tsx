@@ -28,6 +28,7 @@ import {
   parseTodoCommand,
   readFile,
   removeTodo,
+  restoreTodo,
   sortBy,
   sortTodos,
   tagWidthOf,
@@ -35,6 +36,7 @@ import {
   cycleTodo,
   todosFor,
   updateTodo,
+  type DeletedTodo,
   type SortKey,
   type TodoFilter,
 } from "./command.ts"
@@ -43,7 +45,7 @@ import { SHORTCUTS } from "./shortcuts.ts"
 import { STRINGS } from "./strings.ts"
 import { pageSize } from "./page.ts"
 import { DEFAULT_SETTINGS, loadSettings, mergeSettings, saveSettings, type Palette, type Settings } from "./settings.ts"
-import { isDueSoon, isOverdue, type Todo, type TodoPriority } from "./checklist.ts"
+import { isDueSoon, isOverdue, parseChecklist, type Todo, type TodoPriority } from "./checklist.ts"
 
 // "none" clears the priority: updateTodo passes it through as an explicit undefined.
 const EDIT_PRIORITIES: Array<TodoPriority | undefined> = [undefined, "high", "medium", "low"]
@@ -327,6 +329,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
   // The search box takes the keyboard only when it asks: `/` focuses it, Esc hands it back to the list.
   const [focusSearch, setFocusSearch] = createSignal(false)
   const [pendingDelete, setPendingDelete] = createSignal<string | undefined>()
+  const [undone, setUndone] = createSignal<DeletedTodo | undefined>()
 
   onMount(() => onCleanup(onTodosChanged(() => setTick((value) => value + 1))))
 
@@ -385,18 +388,38 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
     setPendingDelete(undefined)
     setCursor((value) => Math.max(0, Math.min(rows().length - 1, value + delta)))
   }
+  // Undo is only the last deleted line: a snapshot of the whole file could overwrite another session's edits.
+  // shortcut: one delete, not state/priority/edit, upgrade to a full history when asked.
+  const rememberDelete = (index: number) => {
+    const text = loaded()?.text
+    if (!text) return
+    const { items, lines } = parseChecklist(text)
+    const item = items[index]
+    if (item) setUndone({ line: lines[item.index], index: item.index })
+  }
   // Two ctrl+d like the editor: the first arms the task, the second deletes it. No dialog to dismiss.
   const deleteSelected = () => {
     const item = selected()
     if (!item) return
     const value = key(item.todo, item.index)
     if (settings.deleteMode === "dialog") {
-      void deleteTodo(context, props.sessionID, value).then(refresh)
+      rememberDelete(item.index)
+      void deleteTodo(context, props.sessionID, value).then((deleted) => {
+        if (!deleted) setUndone(undefined)
+        refresh()
+      })
       return
     }
     if (pendingDelete() !== value) return setPendingDelete(value)
-    removeTodo(context, props.sessionID, value)
+    rememberDelete(item.index)
+    if (!removeTodo(context, props.sessionID, value)) setUndone(undefined)
     setPendingDelete(undefined)
+    refresh()
+  }
+  const undoDelete = () => {
+    const deleted = undone()
+    if (!deleted) return
+    if (restoreTodo(context, props.sessionID, deleted)) setUndone(undefined)
     refresh()
   }
   const editSelected = () => {
@@ -530,6 +553,22 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
         bind: "ctrl+d",
         run: () => {
           if (!focusSearch()) deleteSelected()
+        },
+      },
+      {
+        id: "opencode-todo-md.undo",
+        title: STRINGS.commands.undo,
+        bind: "ctrl+z",
+        run: () => {
+          if (!focusSearch()) undoDelete()
+        },
+      },
+      {
+        id: "opencode-todo-md.renumber",
+        title: STRINGS.commands.renumber,
+        bind: "ctrl+r",
+        run: () => {
+          if (!focusSearch()) void renumberTodo(context, props.sessionID).then(refresh)
         },
       },
     ],

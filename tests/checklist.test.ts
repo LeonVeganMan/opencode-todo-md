@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { applyChecklist, importBullets, isDueSoon, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, renumberChecklist, today } from "../src/checklist.ts"
+import { applyChecklist, importBullets, insertChecklistItem, isDueSoon, isOverdue, parseChecklist, patchTodos, readTodos, removeChecklistItem, renumberChecklist, today } from "../src/checklist.ts"
 import { MARKERS, STRINGS } from "../src/strings.ts"
 import { SHORTCUTS } from "../src/shortcuts.ts"
 import { pageSize } from "../src/page.ts"
@@ -50,6 +50,12 @@ describe("checklist", () => {
     expect(left).toContain("- [ ] tre <!-- created=2026-10-03 -->")
     expect(left).not.toContain("due")
     expect(parseChecklist(left).items.map((item) => item.todo.content)).toEqual(["uno", "tre"])
+  })
+
+  test("an undo puts the removed line back in its place, byte for byte", () => {
+    const original = "# TODO\n\n- [ ] uno <!-- priority=high created=2026-10-01 -->\n- [ ] due <!-- created=2026-10-02 -->\n- [ ] tre <!-- created=2026-10-03 -->\n"
+    const left = removeChecklistItem(original, 1)
+    expect(insertChecklistItem(left, 3, "- [ ] due <!-- created=2026-10-02 -->")).toBe(original)
   })
 
   test("hand-written items without metadata stay readable", () => {

@@ -128,6 +128,13 @@ export function removeChecklistItem(text: string, index: number): string {
   return lines.filter((_, position) => position !== item.index).join("\n")
 }
 
+/** Puts a line back where it was, so an undo does not touch the rest of the file. */
+export function insertChecklistItem(text: string, index: number, line: string): string {
+  const lines = text.split("\n")
+  lines.splice(Math.max(0, Math.min(index, lines.length)), 0, line)
+  return lines.join("\n")
+}
+
 /**
  * Rewrites ids as 1..N following `order` (indices into the parsed items).
  * Written directly instead of going through applyChecklist: reusing existing
