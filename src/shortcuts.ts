@@ -18,6 +18,6 @@ export const SHORTCUTS: Array<Shortcut> = [
   { bind: "ctrl+n", title: "New task" },
   { bind: "ctrl+d", title: "Delete, pressed twice" },
   { bind: "ctrl+z", title: "Undo last delete" },
-  { bind: "ctrl+r", title: "Renumber ids" },
+  { bind: "ctrl+g", title: "Renumber ids" },
   { bind: "escape", title: "Leave search, or close" },
 ]

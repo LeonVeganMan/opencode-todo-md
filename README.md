@@ -116,7 +116,7 @@ Search and press Enter (open, high, #12, @tag)
   never stops at the edge. `space` cycles the selected task's state, `ctrl+e` edits it, `ctrl+n` adds a task, `PgUp`/`PgDn` scroll one
   screen, `Home`/`End` jump to the first or last task.
 - `ctrl+d` arms the selected task and shows `ctrl+d again to delete`: the second press removes the line, no dialog.
-  `ctrl+z` puts the last deleted line back where it was, and `ctrl+r` renumbers the ids from 1.
+  `ctrl+z` puts the last deleted line back where it was, and `ctrl+g` renumbers the ids from 1.
 - `/` gives the keyboard to the search box; `Enter` applies the query and gives the keyboard back to the list. `Esc`
   closes the dialog.
 

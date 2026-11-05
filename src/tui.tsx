@@ -566,7 +566,7 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
       {
         id: "opencode-todo-md.renumber",
         title: STRINGS.commands.renumber,
-        bind: "ctrl+r",
+        bind: "ctrl+g",
         run: () => {
           if (!focusSearch()) void renumberTodo(context, props.sessionID).then(refresh)
         },
@@ -702,11 +702,14 @@ function TodoDialog(props: { sessionID: string; close: () => void }) {
       <text> </text>
       <Show when={settings.showHints}>
         {/* Clicking the bar opens the full list of keys: one line is all that fits here. */}
-        <text fg={theme().textMuted} onMouseUp={() => openHelpDialog(context)}>
-          {pendingDelete()
-            ? `ctrl+d again to delete ${pendingDelete()} · Esc cancels`
-            : "#id edit · ctrl+n new · ctrl+e edit · ctrl+d del · click for all keys"}
-        </text>
+        <box flexDirection="row" onMouseUp={() => openHelpDialog(context)}>
+          <text fg={theme().textMuted}>
+            {pendingDelete()
+              ? `ctrl+d again to delete ${pendingDelete()} · Esc cancels`
+              : "#id edit · ctrl+n new · ctrl+e edit · ctrl+d del · "}
+          </text>
+          <text fg={theme().info}><b>click for all keys</b></text>
+        </box>
       </Show>
     </box>
   )
