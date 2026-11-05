@@ -244,6 +244,12 @@ to be installed locally to try a change.
 
 ## Changelog
 
+### 0.1.16
+
+- Clicking the description opens the editor, like clicking `#id`; only the state cell cycles a task.
+- The row order stays put while the dialog is open, so a state or priority click no longer moves the row under the
+  pointer. The list re-sorts on every reopen.
+
 ### 0.1.15
 
 - Clicking the state cell, or the description, cycles a task pending → in progress → completed; `space` cycles the

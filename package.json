@@ -1,6 +1,6 @@
 {
   "name": "opencode-todo-md",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Project todo list for OpenCode, stored in a plain TODO.md and shared by every session",
   "author": "Leonardo Cosmai <leonardo.cosmai@gmail.com>",
   "repository": {
