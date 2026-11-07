@@ -57,6 +57,11 @@ npm: https://www.npmjs.com/package/opencode-todo-md
 - The list scrolls instead of paging: the cursor walks every task and the view follows it.
 - Settings values are clipped to their column, `Save to` shows `global` or `project`, and the dialog centres itself at mount.
 
+## What's new in 0.1.19
+
+- `note_add` appends a note; `note_write` patches one by `id`, so the two operations no longer share a single tool.
+- `todo_write` accepts `id: 0` as a new task, the same as omitting `id`.
+
 ## What's new in 0.1.18
 
 - `opencode-notes.md` keeps project ideas and reminders with stable ids, `@tags` and an optional time.
@@ -95,5 +100,5 @@ npm: https://www.npmjs.com/package/opencode-todo-md
 - The help dialog carries the symbol legend.
 - Render errors in the sidebar and dialogs go to `~/.local/state/opencode/todo-md-errors.log` instead of vanishing.
 
-Status: v0.1.18, 78 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
+Status: v0.1.19, 79 unit tests. The TUI half (sidebar strip and `/todo`) loads at TUI startup: restart `opencode`, or
 run `/reload`, after installing or updating.

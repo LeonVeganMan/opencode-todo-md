@@ -68,6 +68,18 @@ describe("writeTodos end to end", () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
+  test("id 0 appends like a missing id", () => {
+    const dir = mkdtempSync(join(tmpdir(), "todo-md-"))
+    const file = join(dir, "TODO.md")
+    writeFileSync(file, "# TODO\n\n- [ ] uno <!-- id=1 -->\n")
+    const stored = writeTodos(file, { todos: [{ id: 0, content: "nuovo" }] })
+    expect(stored.map((todo) => todo.content)).toEqual(["uno", "nuovo"])
+    const text = readFileSync(file, "utf8")
+    expect(text).toContain("- [ ] nuovo")
+    expect(text).toContain("id=2")
+    rmSync(dir, { recursive: true, force: true })
+  })
+
   test("replace with an empty list clears the tasks but keeps the rest", () => {
     const dir = mkdtempSync(join(tmpdir(), "todo-md-"))
     const file = join(dir, "TODO.md")

@@ -34,10 +34,10 @@ function entries(input: unknown): Array<Entry> {
     const item = entry as { id?: unknown; content?: unknown; status?: unknown; priority?: unknown; due?: unknown }
     const result: Entry = {}
     if (item.id !== undefined) {
-      if (typeof item.id !== "number" || !Number.isInteger(item.id) || item.id < 1) {
-        throw new Error(`todo #${index + 1} has invalid \`id\` (expected a positive integer read from todo_read)`)
+      if (typeof item.id !== "number" || !Number.isInteger(item.id) || item.id < 0) {
+        throw new Error(`todo #${index + 1} has invalid \`id\` (expected a positive integer read from todo_read, or 0 to append)`)
       }
-      result.id = item.id
+      if (item.id > 0) result.id = item.id
     }
     if (item.content !== undefined) {
       if (typeof item.content !== "string" || !item.content.trim()) {

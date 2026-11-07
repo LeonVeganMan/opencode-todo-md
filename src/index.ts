@@ -60,17 +60,30 @@ async function todoFile(ctx: Plugin.Context, sessionID: string): Promise<string>
   return join(await projectDirectory(ctx, sessionID), "TODO.md")
 }
 
+const NOTE_ADD_SCHEMA = {
+  type: "object",
+  properties: {
+    content: { type: "string", description: "Note text; @tags are allowed." },
+    remind: {
+      type: "string",
+      description: "Optional reminder: relative 15m, 2h, 1d, or local YYYY-MM-DDTHH:MM.",
+    },
+  },
+  required: ["content"],
+  additionalProperties: false,
+} as const
+
 const NOTE_WRITE_SCHEMA = {
   type: "object",
   properties: {
-    id: { type: "integer", minimum: 1, description: "Id of the note to update. Omit to add a new note." },
-    content: { type: "string", description: "Note text; @tags are allowed. Omit to change only the reminder of an existing note." },
+    id: { type: "integer", minimum: 1, description: "Id of the note to update, from note_read." },
+    content: { type: "string", description: "New text; omit to keep the current text." },
     remind: {
       type: "string",
-      description: "Optional reminder: relative 15m, 2h, 1d, or local YYYY-MM-DDTHH:MM. An empty string clears it when patching by id.",
+      description: "Optional reminder: relative 15m, 2h, 1d, or local YYYY-MM-DDTHH:MM. An empty string clears it.",
     },
   },
-  anyOf: [{ required: ["content"] }, { required: ["id"] }],
+  required: ["id"],
   additionalProperties: false,
 } as const
 
@@ -89,7 +102,7 @@ const INPUT_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          id: { type: "integer", minimum: 1, description: "Stable id printed by todo_read. Required to patch an existing task." },
+          id: { type: "integer", minimum: 0, description: "Stable id printed by todo_read. Omit (or pass 0) to append a new task. Required to patch an existing task." },
           content: { type: "string", description: "Imperative description of the task. Omit when patching by id." },
           status: { type: "string", enum: [...TODO_STATUSES], description: "Current state of the task. Optional: a new task defaults to pending." },
           priority: { type: "string", enum: [...TODO_PRIORITIES], description: "Optional priority of the task." },
@@ -155,12 +168,37 @@ export default Plugin.define({
       })
 
       editor.add({
+        name: "note_add",
+        description: [
+          "Add one note to opencode-notes.md at the project root, with an optional reminder.",
+          "Use note_write to change an existing note: this tool always appends and never touches the others.",
+          "`remind` accepts a relative 15m, 2h, 1d or a local YYYY-MM-DDTHH:MM.",
+          "Notes are plain markdown lines shared by every session of the project, so keep them short and self-contained.",
+        ].join(" "),
+        input: NOTE_ADD_SCHEMA,
+        options: { codemode: true },
+        execute: async (input, context) => {
+          const directory = await projectDirectory(ctx, context.sessionID)
+          const file = notesFile(directory)
+          const { text } = readNotes(directory)
+          const parsed = input.remind === undefined ? { ok: true as const, remind: undefined } : parseRemind(input.remind)
+          if (!parsed.ok) {
+            return { content: `Invalid reminder "${input.remind}": use 15m, 2h, 1d or YYYY-MM-DDTHH:MM.` }
+          }
+          if (!input.content?.trim()) return { content: "A note needs content." }
+          const added = appendNote(text, input.content, { remind: parsed.remind })
+          saveNotes(file, added.text)
+          return { content: `Added note #${added.note.id}:\n${renderNotes(parseNotes(added.text).notes)}` }
+        },
+      })
+
+      editor.add({
         name: "note_write",
         description: [
-          "Add or update a note in opencode-notes.md at the project root, with an optional reminder.",
-          "Omit `id` to append a new note; pass `id` to patch that note (read the ids with note_read first).",
-          "`remind` accepts a relative 15m, 2h, 1d or a local YYYY-MM-DDTHH:MM; an empty string clears it.",
-          "Notes are plain markdown lines shared by every session of the project, so keep them short and self-contained.",
+          "Update an existing note in opencode-notes.md at the project root.",
+          "Pass the `id` printed by note_read; use note_add to create a new note.",
+          "`content` replaces the text (omit it to keep the current text); `remind` accepts a relative 15m, 2h, 1d or a local YYYY-MM-DDTHH:MM, and an empty string clears it.",
+          "Notes are plain markdown lines shared by every session of the project.",
         ].join(" "),
         input: NOTE_WRITE_SCHEMA,
         options: { codemode: true },
@@ -171,12 +209,6 @@ export default Plugin.define({
           const parsed = input.remind === undefined ? { ok: true as const, remind: undefined } : parseRemind(input.remind)
           if (!parsed.ok) {
             return { content: `Invalid reminder "${input.remind}": use 15m, 2h, 1d or YYYY-MM-DDTHH:MM.` }
-          }
-          if (input.id === undefined) {
-            if (!input.content?.trim()) return { content: "A note needs content." }
-            const added = appendNote(text, input.content, { remind: parsed.remind })
-            saveNotes(file, added.text)
-            return { content: `Added note #${added.note.id}:\n${renderNotes(parseNotes(added.text).notes)}` }
           }
           const updated = updateNote(text, input.id, {
             content: input.content,
