@@ -31,7 +31,7 @@ function entries(input: unknown): Array<Entry> {
   if (todos.length > MAX_TODOS) throw new Error(`at most ${MAX_TODOS} todos (got ${todos.length})`)
   return todos.map((entry, index) => {
     if (entry === null || typeof entry !== "object") throw new Error(`todo #${index + 1} must be an object`)
-    const item = entry as { id?: unknown; content?: unknown; status?: unknown; priority?: unknown; due?: unknown }
+    const item = entry as { id?: unknown; content?: unknown; status?: unknown; priority?: unknown; due?: unknown; completed?: unknown; done?: unknown }
     const result: Entry = {}
     if (item.id !== undefined) {
       if (typeof item.id !== "number" || !Number.isInteger(item.id) || item.id < 0) {
@@ -50,6 +50,15 @@ function entries(input: unknown): Array<Entry> {
         throw new Error(`todo #${index + 1} has invalid \`status\` (expected: ${TODO_STATUSES.join(", ")})`)
       }
       result.status = item.status as TodoStatus
+    }
+    if (result.status === undefined && item.completed !== undefined) {
+      if (typeof item.completed !== "boolean") {
+        throw new Error(`todo #${index + 1} has invalid \`completed\` (expected a boolean)`)
+      }
+      result.status = item.completed ? "completed" : "pending"
+    }
+    if (result.status === undefined && item.done !== undefined && item.done !== false && item.done !== "") {
+      result.status = "completed"
     }
     if (item.priority !== undefined) {
       if (!TODO_PRIORITIES.includes(item.priority as TodoPriority)) {

@@ -80,6 +80,24 @@ describe("writeTodos end to end", () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
+  test("completed and done aliases close a task and keep the rest", () => {
+    const dir = mkdtempSync(join(tmpdir(), "todo-md-"))
+    const file = join(dir, "TODO.md")
+    writeFileSync(file, "# TODO\n\n- [ ] uno <!-- id=1 priority=high created=2026-10-01 -->\n")
+    const closed = writeTodos(file, { todos: [{ id: 1, completed: true }] })
+    expect(closed[0].status).toBe("completed")
+    expect(closed[0].done).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(closed[0].content).toBe("uno")
+    expect(closed[0].priority).toBe("high")
+    expect(closed[0].created).toBe("2026-10-01")
+    const reopened = writeTodos(file, { todos: [{ id: 1, completed: false }] })
+    expect(reopened[0].status).toBe("pending")
+    expect(reopened[0].done).toBeUndefined()
+    const doneAlias = writeTodos(file, { todos: [{ id: 1, done: "2026-11-01" }] })
+    expect(doneAlias[0].status).toBe("completed")
+    rmSync(dir, { recursive: true, force: true })
+  })
+
   test("replace with an empty list clears the tasks but keeps the rest", () => {
     const dir = mkdtempSync(join(tmpdir(), "todo-md-"))
     const file = join(dir, "TODO.md")
